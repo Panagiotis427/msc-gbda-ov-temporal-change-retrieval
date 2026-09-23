@@ -231,7 +231,8 @@ score (a difference of cosine similarities) min–max normalised across the retu
 relative ranking within the query, not a calibrated probability. The remaining matches fill a thumbnail
 grid whose per-tile **View** button promotes any result into the detail panel, and a ranked table
 (exportable to CSV) lists them all. A collapsible **Settings** panel chooses the dataset, encoder,
-colour mode, PEFT/LoRA, and the optional geographic filter and re-ranking, applied on **Apply**; a
+colour mode, PEFT/LoRA, and the optional geographic filter and re-ranking, applied on **Apply** —
+for that browser session only, so visitors to a shared deployment do not change each other's corpus; a
 collapsible **About** panel explains each scoring approach and the honest accuracy expectations.
 Startup defaults are set through CLI flags:
 
@@ -280,7 +281,7 @@ convenience entry points — pass the same `--split` / `--color-mode` to every s
 share the split-tagged embedding cache.
 
 ```bash
-pytest -q                              # full suite (real-CLIP test_text_encoder skipped unless weights present)
+pytest -q                              # full suite (test_text_encoder needs the real CLIP weights — network or a warm cache — and skips without them)
 pytest -q --ignore=tests/test_text_encoder.py   # fast CPU loop, ~65 s (mock encoders, synthetic fixture)
 ```
 
@@ -367,17 +368,19 @@ Download links and citations for the datasets and encoders used.
   `gdown 1cMP57SPQWYKMy8X60iK217C28RFBkd2z` (wrapped by `scripts/download_den.py`) ·
   [torchgeo HF](https://huggingface.co/datasets/torchgeo/dynamic_earthnet) ·
   [HEVC-compressed HF](https://huggingface.co/datasets/tacofoundation/DynamicEarthNet-video) ·
-  raw ~525 GB [TUM Mediatum](https://mediatum.ub.tum.de/1650201).
+  raw ~525 GB [TUM Mediatum](https://mediatum.ub.tum.de/1650201). Licence: CC BY-SA 4.0 (per mediaTUM).
 - **QFabric** (CVPR EarthVision 2021, Verma et al.) — used here in the reduced 2-date TEOChatlas
   form (`qfabric_teo`): [TEOChatlas](https://huggingface.co/datasets/jirvin16/TEOChatlas). The full
   5-date + COCO-polygon-mask form ([labaerien/qfabric](https://huggingface.co/datasets/labaerien/qfabric),
   **gated**) is access-blocked and out of scope — see the report's §11.
   [Paper](https://openaccess.thecvf.com/content/CVPR2021W/EarthVision/papers/Verma_QFabric_Multi-Task_Change_Detection_Dataset_CVPRW_2021_paper.pdf).
+  Licence: TEOChatlas is published as Apache-2.0; the full QFabric as CC BY-NC 4.0 (per their HF cards).
   (Avoid `EVER-Z/QFabric_mt_images_1024` — 298 GB, image-only, no masks.)
 - **LEVIR-CC / LEVIR-MCI** — building/road change captions + pixel masks (in-repo loaders
-  `levir_cc` / `levir_mci`).
+  `levir_cc` / `levir_mci`). Built on LEVIR-CD's Google Earth imagery: academic use only, no
+  commercial use ([LEVIR-CD terms](https://justchenhao.github.io/LEVIR/)), and Google Earth's terms apply.
 - **SECOND-CC** — six-class land-cover change + semantic maps
-  ([Zenodo 10.5281/zenodo.16937571](https://doi.org/10.5281/zenodo.16937571); `second_cc`).
+  ([Zenodo 10.5281/zenodo.16937571](https://doi.org/10.5281/zenodo.16937571); `second_cc`). Licence: CC BY 4.0.
 - **fMoW** (CVPR 2018) — assessed and **rejected** (functional classification, no change labels;
   see the report's §11). [Paper](https://arxiv.org/abs/1711.07846).
 
@@ -385,10 +388,13 @@ Download links and citations for the datasets and encoders used.
 
 - **CLIP ViT-L/14** (OpenAI, Radford et al. 2021) — general backbone.
   [Paper](https://arxiv.org/abs/2103.00020) · [HF](https://huggingface.co/openai/clip-vit-large-patch14).
+  Licence: MIT ([openai/CLIP](https://github.com/openai/CLIP)).
 - **GeoRSCLIP** (RS5M, Om AI Lab) — RS-pretrained, the headline encoder.
   [Paper](https://arxiv.org/abs/2306.11300) · [HF](https://huggingface.co/Zilun/GeoRSCLIP).
+  Licence: its HF card says only "cc"; the RS5M data it was trained on is CC BY-NC 4.0.
 - **RemoteCLIP** (IEEE TGRS) — RS-pretrained.
   [Paper](https://arxiv.org/abs/2306.11029) · [repo](https://github.com/ChenDelong1999/RemoteCLIP).
+  Licence: Apache-2.0 (the repo; its HF weights card states none).
 - All loaded via [OpenCLIP](https://github.com/mlfoundations/open_clip); weights auto-download from
   HuggingFace on first use into `.model_cache/`.
 
@@ -402,4 +408,4 @@ The complete technical account — methodology, the full statistical protocol, e
 
 ## License
 
-The code in this repository is released under the [MIT License](LICENSE). The technical report in `report/` and its figures are the authors' academic work — please cite the report rather than redistribute it.
+The code in this repository is released under the [MIT License](LICENSE). That licence does not extend to third-party data or weights: the datasets and encoders keep the terms listed under [Datasets & model resources](#datasets--model-resources), and the adapters in `models/` were trained on Dynamic EarthNet and QFabric/TEOChatlas features from those encoders, so check the upstream terms (several are share-alike or non-commercial) before reusing them outside research. The technical report in `report/` and its figures are the authors' academic work — please cite the report rather than redistribute it.

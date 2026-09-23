@@ -2,11 +2,28 @@
 Unit tests for text embedding pipeline.
 
 Tests verify CLIP text encoder loads correctly, produces valid embeddings,
-and handles edge cases in query encoding.
+and handles edge cases in query encoding. They need the real CLIP weights
+(network, or a warm HuggingFace cache); without them they skip rather than error.
 """
 import pytest
 import torch
 from src.text_encoder import FrozenTextEncoder
+
+_CACHE_DIR = "/tmp/clip-test-cache"
+_unavailable = None  # set on the first failed load, so the rest skip at once
+
+
+def _load_encoder(**kwargs):
+    """The default CLIP text encoder, or a skip when its weights cannot be loaded.
+    Only OSError (no network and no cached files) skips; any other error fails."""
+    global _unavailable
+    if _unavailable is not None:
+        pytest.skip(_unavailable)
+    try:
+        return FrozenTextEncoder(cache_dir=_CACHE_DIR, **kwargs)
+    except OSError as exc:
+        _unavailable = f"CLIP text weights unavailable (needs network or a warm cache): {exc}"
+        pytest.skip(_unavailable)
 
 
 class TestFrozenTextEncoder:
@@ -15,21 +32,18 @@ class TestFrozenTextEncoder:
     @pytest.fixture
     def encoder(self):
         """Create a reusable test encoder instance."""
-        return FrozenTextEncoder(cache_dir="/tmp/clip-test-cache")
+        return _load_encoder()
 
     def test_encoder_respects_explicit_device(self):
         """Explicit device must be honored and all params frozen."""
-        import torch
-        enc = FrozenTextEncoder(device=torch.device("cpu"),
-                                cache_dir="/tmp/clip-test-cache")
+        enc = _load_encoder(device=torch.device("cpu"))
         assert str(enc.device) == "cpu", f"Expected cpu, got {enc.device}"
         assert all(not p.requires_grad for p in enc.model.parameters())
 
     def test_encoder_default_device_autodetects(self):
         """Default device = CUDA when available, else CPU (P1 fix)."""
-        import torch
         expected = "cuda" if torch.cuda.is_available() else "cpu"
-        enc = FrozenTextEncoder(cache_dir="/tmp/clip-test-cache")
+        enc = _load_encoder()
         assert str(enc.device).startswith(expected)
 
     def test_encoder_embed_dim(self, encoder):

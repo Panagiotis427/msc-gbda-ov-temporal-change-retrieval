@@ -21,8 +21,11 @@ from __future__ import annotations
 import argparse
 import csv
 import os
+import shutil
 import tempfile
+import threading
 import traceback
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
@@ -43,7 +46,16 @@ _CSV_HEADER = ["rank", "location", "before", "after", "score",
                "match_0_1", "caption", "land_cover_change"]
 
 
-_EXPORT_DIR = None  # one lazily-created temp dir, reused for all app exports
+_EXPORT_DIR = None  # one lazily-created temp dir holding every app export
+_REQUEST_DIRS_KEPT = 32  # recent searches whose exported files stay on disk
+_MAX_RESULTS = 10  # Top-K slider maximum == size of the all-matches grid
+
+
+def clamp_top_k(value) -> int:
+    """Top-K as the app serves it. The slider bounds it only in the browser; the
+    API endpoint accepts any number, and every result costs an image load plus a
+    heatmap pass, so a huge value would sweep the whole corpus on one request."""
+    return max(1, min(int(value), _MAX_RESULTS))
 
 
 def _safe_name(raw: str) -> str:
@@ -51,31 +63,47 @@ def _safe_name(raw: str) -> str:
 
 
 def _export_dir() -> str:
-    """One reused temp dir for every app export (named images + result CSV). With
-    deterministic basenames the files overwrite in place, so the footprint stays
-    bounded across a long-running session instead of leaking a dir per query."""
+    """The app's temp root for exports (named images + result CSV)."""
     global _EXPORT_DIR
     if _EXPORT_DIR is None:
         _EXPORT_DIR = tempfile.mkdtemp(prefix="change_app_")
     return _EXPORT_DIR
 
 
-def materialize_image(img, raw_name: str) -> Optional[str]:
+def _request_dir() -> str:
+    """A fresh export subdirectory for one search or View click. Files keep their
+    meaningful basenames (Gradio uses them as download names), yet two requests can
+    never overwrite each other's heatmap or CSV — the heatmap depends on the query,
+    the basename does not. Only the most recent few are kept, so disk use stays
+    bounded on a long-running Space."""
+    root = _export_dir()
+    path = Path(tempfile.mkdtemp(prefix="req_", dir=root))
+    # Oldest first; the new directory is never a candidate (same-second mtimes tie).
+    others = sorted((p for p in Path(root).iterdir()
+                     if p.is_dir() and p.name.startswith("req_") and p != path),
+                    key=lambda p: p.stat().st_mtime)
+    for old in others[:max(0, len(others) - (_REQUEST_DIRS_KEPT - 1))]:
+        shutil.rmtree(old, ignore_errors=True)
+    return str(path)
+
+
+def materialize_image(img, raw_name: str, out_dir: Optional[str] = None) -> Optional[str]:
     """Save a PIL image to a PNG with a meaningful basename and return its path.
 
     Gradio names a downloaded image after the served file's basename, so passing a
     named path (rather than a bare PIL object, which downloads as ``image.png``)
     gives the user a sensible filename like ``after_2065_2018-07-01.png``.
-    Returns None when *img* is None.
+    ``out_dir`` defaults to the shared export root; the UI passes a per-request
+    directory. Returns None when *img* is None.
     """
     if img is None:
         return None
-    path = os.path.join(_export_dir(), _safe_name(raw_name) + ".png")
+    path = os.path.join(out_dir or _export_dir(), _safe_name(raw_name) + ".png")
     img.save(path)
     return path
 
 
-def results_to_csv(rows, dataset: str) -> Optional[str]:
+def results_to_csv(rows, dataset: str, out_dir: Optional[str] = None) -> Optional[str]:
     """Write ranked result *rows* to a CSV with a clean, dataset-named basename
     (e.g. ``change_results_levir_mci.csv``) so the in-app download has a usable
     name + extension, not a random temp name. Returns the path, or None if no rows.
@@ -83,7 +111,7 @@ def results_to_csv(rows, dataset: str) -> Optional[str]:
     if not rows:
         return None
     safe = "".join(c if (c.isalnum() or c in "-_") else "_" for c in dataset) or "results"
-    path = os.path.join(_export_dir(), f"change_results_{safe}.csv")
+    path = os.path.join(out_dir or _export_dir(), f"change_results_{safe}.csv")
     with open(path, "w", newline="", encoding="utf-8") as fh:
         writer = csv.writer(fh)
         writer.writerow(_CSV_HEADER)
@@ -229,6 +257,42 @@ class ChangeEvent:
     t1_img: Optional[Image.Image]
     t2_img: Optional[Image.Image]
     heatmap: Optional[Image.Image]
+
+
+def settings_config(base: RunConfig, dataset: str, encoder: str, approach: str,
+                    color_mode: str = "rgb", use_lora: bool = False) -> RunConfig:
+    """The RunConfig that "Apply settings" asks for, resolved through the dataset's
+    launch profile so switching datasets loads the right directory/split/colour.
+    DEN honours the colour dropdown; other corpora pin colour (rgb) via the profile."""
+    prof = DATASET_PROFILES.get(dataset, {})
+    prof_root = prof.get("root")
+    # Use the profile's data dir when it exists; otherwise keep the current root
+    # (e.g. on the fixture-only HF Space, where the real corpora are absent —
+    # switching to a non-fixture dataset then errors gracefully).
+    root = prof_root if prof_root and Path(prof_root).exists() else base.root
+    return RunConfig(
+        dataset=dataset, encoder=encoder, approach=approach,
+        root=root, pairing=prof.get("pairing", base.pairing),
+        split=prof.get("split", base.split), cache_dir=base.cache_dir,
+        color_mode=prof.get("color_mode", color_mode), use_lora=use_lora,
+        geo_filter=base.geo_filter, rerank=base.rerank,
+        rerank_strategy=base.rerank_strategy,
+        loader_extra=prof.get("loader_extra", {}),
+    )
+
+
+def _engine_key(cfg: RunConfig) -> tuple:
+    """The RunConfig fields that determine what an engine loads. Approach, top-K,
+    filters and re-ranking are per-query choices and do not need a separate engine."""
+    return (cfg.dataset, cfg.encoder, cfg.root, cfg.pairing, cfg.split, cfg.cache_dir,
+            cfg.feature_mode, cfg.color_mode, cfg.use_lora,
+            tuple(sorted((k, repr(v)) for k, v in cfg.loader_extra.items())))
+
+
+def _loaded_status(cfg: RunConfig, n_pairs: int) -> str:
+    lora_note = " + LoRA" if cfg.use_lora else ""
+    return (f"Loaded {cfg.dataset} + {cfg.encoder}{lora_note} | "
+            f"color={cfg.color_mode} | approach={cfg.approach} | {n_pairs} pairs")
 
 
 class SemanticChangeSearch:
@@ -537,41 +601,26 @@ class SemanticChangeSearch:
 
     def reload(self, dataset: str, encoder: str, approach: str,
                color_mode: str = "rgb", use_lora: bool = False):
+        """Switch this engine to another corpus/encoder in place (single-user use).
+        The new state is built completely before it replaces the old one, so a failed
+        switch keeps the previous corpus intact. The web UI does not call this: it
+        gives each session its own configuration through an EnginePool."""
         try:
-            # Resolve the per-dataset launch profile so switching datasets loads
-            # the right directory/split/colour. DEN honours the colour dropdown;
-            # other corpora pin colour (rgb) via the profile.
-            prof = DATASET_PROFILES.get(dataset, {})
-            prof_root = prof.get("root")
-            # Use the profile's data dir when it exists; otherwise keep the current
-            # root (e.g. on the fixture-only HF Space, where the real corpora are
-            # absent — switching to a non-fixture dataset then errors gracefully).
-            root = prof_root if prof_root and Path(prof_root).exists() else self.cfg.root
-            split = prof.get("split", self.cfg.split)
-            pairing = prof.get("pairing", self.cfg.pairing)
-            color = prof.get("color_mode", color_mode)
-            self.cfg = RunConfig(
-                dataset=dataset, encoder=encoder, approach=approach,
-                root=root, pairing=pairing,
-                split=split, cache_dir=self.cfg.cache_dir,
-                color_mode=color, use_lora=use_lora,
-                geo_filter=self.cfg.geo_filter, rerank=self.cfg.rerank,
-                rerank_strategy=self.cfg.rerank_strategy,
-                loader_extra=prof.get("loader_extra", {}),
-            )
-            self._build(self.cfg)
-            lora_note = " + LoRA" if use_lora else ""
-            status = (f"Loaded {dataset} + {encoder}{lora_note} | "
-                      f"color={self.cfg.color_mode} | approach={approach} | "
-                      f"{len(self.store)} pairs")
-            return status, self.stats_markdown()
+            cfg = settings_config(self.cfg, dataset, encoder, approach, color_mode, use_lora)
+            fresh = type(self)(cfg)
+            self.__dict__.update(fresh.__dict__)
+            return _loaded_status(self.cfg, len(self.store)), self.stats_markdown()
         except Exception as exc:
             traceback.print_exc()
             return f"Error: {exc}", "<div class='stats-card stats-err'>Error</div>"
 
-    def build_interface(self):
+    def build_interface(self, pool: "Optional[EnginePool]" = None):
         import gradio as gr
+        # `engine` (this startup engine) only seeds the widgets' initial values. Every
+        # callback resolves the session's own engine from `pool`, keyed by the
+        # configuration that session applied, so visitors never share a corpus switch.
         engine = self
+        pool = pool or EnginePool(self)
         from src.encoders import list_encoders
 
         # Kept short so it doesn't dominate the first view; the dropdown choice
@@ -673,7 +722,7 @@ class SemanticChangeSearch:
                     info=APPROACH_HELP,
                     scale=2,
                 )
-                k = gr.Slider(1, 10, value=engine.cfg.top_k, step=1,
+                k = gr.Slider(1, _MAX_RESULTS, value=engine.cfg.top_k, step=1,
                               label="Top-K", info=TOPK_HELP, scale=1)
                 go = gr.Button("Search", variant="primary", size="lg",
                                elem_id="search-btn")
@@ -784,9 +833,25 @@ class SemanticChangeSearch:
 
                 d_dd.change(_color_for_dataset, d_dd, color_dd)
 
-                apply.click(engine.reload,
-                            [d_dd, e_dd, a_dd, color_dd, lora_chk],
-                            [status, stats_md])
+                # This browser session's corpus configuration (Gradio copies the
+                # initial value per session). Apply changes it for this session only.
+                session_cfg = gr.State(engine.cfg)
+
+                def apply_settings(dataset, encoder, approach, color_mode, use_lora, cfg):
+                    new_cfg = settings_config(cfg, dataset, encoder, approach,
+                                              color_mode, bool(use_lora))
+                    try:
+                        eng = pool.get(new_cfg)
+                    except Exception as exc:
+                        traceback.print_exc()
+                        # The session keeps its previous, working configuration.
+                        return (f"Error: {exc}",
+                                "<div class='stats-card stats-err'>Error</div>", cfg)
+                    return _loaded_status(new_cfg, len(eng.store)), eng.stats_markdown(), new_cfg
+
+                apply.click(apply_settings,
+                            [d_dd, e_dd, a_dd, color_dd, lora_chk, session_cfg],
+                            [status, stats_md, session_cfg])
 
             # ---- Results ----
             gr.Markdown("## Top match")
@@ -843,7 +908,7 @@ class SemanticChangeSearch:
             # to a hard-to-exit enlarge preview. MAX_RESULTS components are built up
             # front (== Top-K slider max) and shown/hidden per query.
             gr.Markdown("## All matches")
-            MAX_RESULTS = 10  # == Top-K slider maximum
+            MAX_RESULTS = _MAX_RESULTS  # == Top-K slider maximum
             tiles, view_btns = [], []
             with gr.Column(elem_classes="matches-grid"):
                 for _r in range(2):
@@ -898,29 +963,31 @@ class SemanticChangeSearch:
             def _dl(path):
                 return gr.update(value=path, visible=path is not None)
 
-            def _event_view(e):
-                """Materialise an event's images to named PNGs and return the two
-                swipe-slider tuples plus the three image paths (Before / After /
+            def _event_view(e, out_dir):
+                """Materialise an event's images to named PNGs in *out_dir* and return
+                the two swipe-slider tuples plus the three image paths (Before / After /
                 heatmap). Named paths give meaningful download filenames; a slider
                 tuple is None if a side is missing (None in a tuple breaks ImageSlider)."""
-                b = materialize_image(e.t1_img, f"before_{e.location}_{e.t1_key}")
-                a = materialize_image(e.t2_img, f"after_{e.location}_{e.t2_key}")
+                b = materialize_image(e.t1_img, f"before_{e.location}_{e.t1_key}", out_dir)
+                a = materialize_image(e.t2_img, f"after_{e.location}_{e.t2_key}", out_dir)
                 h = materialize_image(
-                    e.heatmap, f"heatmap_{e.location}_{e.t1_key}_to_{e.t2_key}")
+                    e.heatmap, f"heatmap_{e.location}_{e.t1_key}_to_{e.t2_key}", out_dir)
                 before_after = (b, a) if b and a else None
                 after_heat = (a, h) if a and h else None
                 return before_after, after_heat, b, a, h
 
             def handle(text, approach, top_k,
-                       geo_enabled, geo_region, rerank_enabled, rerank_strategy,
+                       geo_enabled, geo_region, rerank_enabled, rerank_strategy, cfg,
                        progress=gr.Progress()):
                 try:
                     progress(0.05, desc="Scoring corpus against your query… "
                              "(first query on a dataset/approach encodes it — a few seconds)")
                     active_geo = geo_region if geo_enabled else "All"
                     active_rerank = rerank_strategy if rerank_enabled else None
-                    evs = engine.query(
-                        text, approach, int(top_k),
+                    top_k = clamp_top_k(top_k)
+                    session_engine = pool.get(cfg)
+                    evs = session_engine.query(
+                        text, approach, top_k,
                         geo_region=active_geo,
                         rerank_strategy=active_rerank,
                     )
@@ -949,6 +1016,7 @@ class SemanticChangeSearch:
                 # buttons index these 1:1); `top` = the first displayable one, so the
                 # Top-match panel and View #1 never point at different events.
                 shown, top = displayable_events(evs)
+                out_dir = _request_dir()
                 tile_ups, btn_ups = [], []
                 for i in range(MAX_RESULTS):
                     if i < len(shown):
@@ -956,15 +1024,16 @@ class SemanticChangeSearch:
                         kind = "heatmap" if e.heatmap is not None else "after"
                         tp = materialize_image(
                             e.heatmap or e.t2_img,
-                            f"rank{e.rank}_{kind}_{e.location}_{e.t1_key}_to_{e.t2_key}")
+                            f"rank{e.rank}_{kind}_{e.location}_{e.t1_key}_to_{e.t2_key}",
+                            out_dir)
                         tile_ups.append(gr.update(value=tp, visible=True))
                         btn_ups.append(gr.update(
                             value=f"View #{e.rank} · {e.location}", visible=True))
                     else:
                         tile_ups.append(gr.update(value=None, visible=False))
                         btn_ups.append(gr.update(visible=False))
-                before_after, after_heat, b, a, h = _event_view(top)
-                csv_path = results_to_csv(rows, engine.cfg.dataset)
+                before_after, after_heat, b, a, h = _event_view(top, out_dir)
+                csv_path = results_to_csv(rows, session_engine.cfg.dataset, out_dir)
                 return (before_after, after_heat, _event_md(top), rows,
                         _dl(csv_path), _dl(b), _dl(a), _dl(h), shown,
                         *tile_ups, *btn_ups)
@@ -976,13 +1045,13 @@ class SemanticChangeSearch:
                     if not shown or i >= len(shown):
                         return tuple(gr.update() for _ in range(6))
                     e = shown[i]
-                    before_after, after_heat, b, a, h = _event_view(e)
+                    before_after, after_heat, b, a, h = _event_view(e, _request_dir())
                     return before_after, after_heat, _event_md(e), _dl(b), _dl(a), _dl(h)
                 return _load
 
             outputs = [cmp, hm_cmp, summary, table, dl,
                        dl_before, dl_after, dl_heat, events_state, *tiles, *view_btns]
-            inputs = [q, a_dd, k, geo_chk, geo_dd, rerank_chk, rerank_dd]
+            inputs = [q, a_dd, k, geo_chk, geo_dd, rerank_chk, rerank_dd, session_cfg]
             go.click(handle, inputs, outputs)
             q.submit(handle, inputs, outputs)
             for _i, _btn in enumerate(view_btns):
@@ -1002,7 +1071,7 @@ class SemanticChangeSearch:
                 k_up = gr.update()
                 try:
                     k_val = int(params.get("k", ""))
-                    if 1 <= k_val <= 10:
+                    if 1 <= k_val <= _MAX_RESULTS:
                         k_up = gr.update(value=k_val)
                 except (TypeError, ValueError):
                     pass
@@ -1010,6 +1079,53 @@ class SemanticChangeSearch:
 
             demo.load(_prefill_from_url, None, [q, a_dd, k])
         return demo
+
+
+class EnginePool:
+    """Built engines shared by every browser session, keyed by what they load.
+
+    A public Space serves all visitors from one process. Each session keeps its own
+    RunConfig and looks its engine up here, so one visitor's "Apply settings" never
+    changes another's corpus, and a search never reads an engine mid-rebuild: engines
+    are not mutated once built, and a new configuration gets a new engine. Sessions
+    on the same configuration share one engine. At most ``max_engines`` stay resident
+    (least recently used out first), since each holds an encoder and embeddings; an
+    evicted configuration is rebuilt (from the embedding cache) on its next use.
+    """
+
+    def __init__(self, first: "SemanticChangeSearch", max_engines: int = 2, factory=None):
+        self._factory = factory or SemanticChangeSearch
+        self._max = max(1, int(max_engines))
+        self._lock = threading.Lock()        # guards the mapping
+        self._build_lock = threading.Lock()  # one build at a time (memory-heavy)
+        self._engines = OrderedDict([(_engine_key(first.cfg), first)])
+
+    def _lookup(self, key):
+        with self._lock:
+            eng = self._engines.get(key)
+            if eng is not None:
+                self._engines.move_to_end(key)
+            return eng
+
+    def get(self, cfg: RunConfig) -> "SemanticChangeSearch":
+        key = _engine_key(cfg)
+        eng = self._lookup(key)
+        if eng is not None:
+            return eng
+        with self._build_lock:
+            eng = self._lookup(key)          # another session may have just built it
+            if eng is not None:
+                return eng
+            eng = self._factory(cfg)         # raises on failure; nothing registered
+            with self._lock:
+                self._engines[key] = eng
+                while len(self._engines) > self._max:
+                    self._engines.popitem(last=False)
+            return eng
+
+    def __len__(self) -> int:
+        with self._lock:
+            return len(self._engines)
 
 
 def parse_args():

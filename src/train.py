@@ -15,7 +15,9 @@ repeat heavily), which avoids the false-negative problem of plain diagonal
 InfoNCE.
 
 Evaluation is the real label-grounded benchmark (``src.benchmark``), comparing
-zero-shot vs the trained PEFT adapter — not a synthetic identity-diagonal.
+zero-shot vs the trained PEFT adapter — not a synthetic identity-diagonal — on
+a split held out from training (``--eval-split``, default ``test``; the adapter
+trains on ``--split``, default ``train``).
 
 CLI:
     python -m src.train --dataset dynamic_earthnet --root data/DynamicEarthNet \
@@ -166,28 +168,45 @@ def main() -> None:
     ap.add_argument("--batch-size", type=int, default=32)
     ap.add_argument("--lr", type=float, default=1e-3)
     ap.add_argument("--cache-dir", default="data/cache")
-    ap.add_argument("--split", default="test",
-                    help="DEN preprocessed split: train|val|test|all")
+    ap.add_argument("--split", default="train",
+                    help="split the adapter trains on (DEN preprocessed: train|val|test|all)")
+    ap.add_argument("--eval-split", default="test",
+                    help="split the Before/After benchmark scores; keep it disjoint from "
+                         "--split, or the PEFT numbers measure train-set fit")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
 
-    ds = build_dataset(args.dataset, root=args.root, pairing=args.pairing,
-                       split=None if args.split == "all" else args.split)
     enc = get_encoder(args.encoder)
-    # Key the embedding cache by split (this CLI is rgb-only) via the canonical
-    # tag helper, matching scripts.run_pipeline. Without a tag this read/wrote
-    # the un-split-tagged cache, so it bypassed the split-keyed caches and
-    # different --split runs clobbered one shared file (the "test+rgb -> empty
-    # tag" drift cache_tag_for exists to prevent).
-    store = load_or_compute(ds, enc, cache_dir=args.cache_dir,
-                            cache_tag=cache_tag_for(args.split, "rgb"))
+
+    def load(split):
+        ds = build_dataset(args.dataset, root=args.root, pairing=args.pairing,
+                           split=None if split == "all" else split)
+        # Key the embedding cache by split (this CLI is rgb-only) via the canonical
+        # tag helper, matching scripts.run_pipeline. Without a tag this read/wrote
+        # the un-split-tagged cache, so it bypassed the split-keyed caches and
+        # different --split runs clobbered one shared file (the "test+rgb -> empty
+        # tag" drift cache_tag_for exists to prevent).
+        store = load_or_compute(ds, enc, cache_dir=args.cache_dir,
+                                cache_tag=cache_tag_for(split, "rgb"))
+        return ds, store
+
+    ds, store = load(args.split)
+    if args.eval_split == args.split:
+        eval_ds, eval_store = ds, store
+    else:
+        eval_ds, eval_store = load(args.eval_split)
+    if args.split in (args.eval_split, "all"):
+        print(f"WARNING: training split '{args.split}' covers the evaluation split "
+              f"'{args.eval_split}': the After (PEFT) table scores pairs the adapter "
+              "was trained on — a train-set fit, not a held-out estimate. "
+              "scripts.run_pipeline reports held-out numbers.")
 
     cfg = TrainConfig(mode=args.mode, epochs=args.epochs,
                       batch_size=args.batch_size, lr=args.lr)
 
-    retr = ChangeRetriever(store, enc, feature_mode=args.mode)
-    print("\nBefore (zero-shot):")
-    print(run_benchmark(ds, retr, approach="zero_shot").to_table())
+    retr = ChangeRetriever(eval_store, enc, feature_mode=args.mode)
+    print(f"\nBefore (zero-shot, {args.eval_split} split):")
+    print(run_benchmark(eval_ds, retr, approach="zero_shot").to_table())
 
     print(f"\nTraining adapter ({args.mode}, {args.epochs} epochs)...")
     adapter, hist = train_adapter(ds, store, enc, cfg)
@@ -204,8 +223,8 @@ def main() -> None:
     print(f"Saved adapter -> {out}")
 
     retr.set_adapter(adapter, feature_mode=args.mode)
-    print("\nAfter (PEFT):")
-    print(run_benchmark(ds, retr, approach="peft").to_table())
+    print(f"\nAfter (PEFT, {args.eval_split} split):")
+    print(run_benchmark(eval_ds, retr, approach="peft").to_table())
 
 
 if __name__ == "__main__":

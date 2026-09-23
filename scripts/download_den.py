@@ -7,21 +7,56 @@ Usage:
 Steps
 -----
 1. gdown the archive (idempotent — skips if ``_done.marker`` exists).
-2. Extract (auto-detects .tar / .zip / .tar.gz).
-3. Verify ≥ 5 AOI subdirs under ``planet/``.
-4. Build ``labels_index.parquet`` by iterating all candidate pairs and calling
+2. Hash it (SHA-256) and, when the digest is known, refuse a mismatch.
+3. Extract (auto-detects .tar / .zip / .tar.gz).
+4. Verify ≥ 5 AOI subdirs under ``planet/``.
+5. Build ``labels_index.parquet`` by iterating all candidate pairs and calling
    ``derive_pair_label``.
-5. Touch ``_done.marker``.
+6. Touch ``_done.marker``.
 """
 import argparse
+import hashlib
 import json
 import tarfile
 import zipfile
 from pathlib import Path
+from typing import Optional
 
 # gdown ID for the 5-AOI preprocessed DEN subset (~7 GB extracted)
 _GDRIVE_ID = "1cMP57SPQWYKMy8X60iK217C28RFBkd2z"
 _ARCHIVE_NAME = "den_5aoi.tar.gz"
+# SHA-256 of that archive. Google Drive publishes none, so it is pinned from a
+# download whose data checked out; None = verify only against --sha256, and print
+# the digest so it can be recorded here.
+_ARCHIVE_SHA256: Optional[str] = None
+
+
+def _sha256(path: Path, chunk: int = 1 << 20) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for block in iter(lambda: fh.read(chunk), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def verify_archive(archive: Path, expected: Optional[str]) -> str:
+    """Hash the archive before extracting it; with a known digest, refuse a
+    mismatch. A truncated or corrupt ~7 GB download can otherwise extract into a
+    tree that passes the coarse layout check. A bad archive is renamed aside (not
+    deleted), so the next run downloads a fresh copy."""
+    print(f"Hashing {archive.name} (SHA-256) ...")
+    digest = _sha256(archive)
+    print(f"  sha256 = {digest}")
+    if expected and digest.lower() != expected.strip().lower():
+        bad = archive.with_name(archive.name + ".corrupt")
+        archive.rename(bad)
+        raise RuntimeError(
+            f"Checksum mismatch for {archive.name}: expected {expected}, got {digest}. "
+            f"Moved it to {bad.name}; re-run to download again.")
+    if not expected:
+        print("  No pinned checksum: once this data checks out, record the digest "
+              "in _ARCHIVE_SHA256 (scripts/download_den.py).")
+    return digest
 
 
 def _gdown_download(gdrive_id: str, dest_file: Path) -> None:
@@ -129,6 +164,9 @@ def main() -> None:
                         help="Pair-building strategy for labels_index")
     parser.add_argument("--skip-download", action="store_true",
                         help="Skip download (archive already present)")
+    parser.add_argument("--sha256", default=_ARCHIVE_SHA256,
+                        help="expected SHA-256 of the archive, checked before extraction "
+                             "(default: the pinned digest, if any)")
     args = parser.parse_args()
 
     root = Path(args.dest)
@@ -158,6 +196,7 @@ def main() -> None:
 
     already = resolve_pp_root(root) is not None or (root / "planet").is_dir()
     if not already:
+        verify_archive(archive, args.sha256)
         _extract(archive, root)
 
     pp = resolve_pp_root(root)
