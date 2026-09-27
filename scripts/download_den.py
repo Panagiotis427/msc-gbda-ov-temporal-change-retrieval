@@ -28,7 +28,7 @@ _ARCHIVE_NAME = "den_5aoi.tar.gz"
 # SHA-256 of that archive. Google Drive publishes none, so it is pinned from a
 # download whose data checked out; None = verify only against --sha256, and print
 # the digest so it can be recorded here.
-_ARCHIVE_SHA256: Optional[str] = None
+_ARCHIVE_SHA256: Optional[str] = "38a846be3c54df7b3e22a364aa8711c1839a681676b43f9b7a97b49d943a4870"
 
 
 def _sha256(path: Path, chunk: int = 1 << 20) -> str:
