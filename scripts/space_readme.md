@@ -23,7 +23,10 @@ Type a free-text change query (or click an example) and press **Search**. The to
 before/after swipe views and a query-conditioned change heatmap on the later image, alongside its
 match score; the remaining matches fill a ranked, exportable grid. The **Settings** panel switches
 dataset, encoder, colour mode, and scoring approach; the **About** panel explains each approach and
-the honest accuracy limits.
+the honest accuracy limits. This hosted copy runs over a bundled synthetic corpus (a Dynamic
+EarthNet-shaped sample of 2 locations × 8 months, 6 pairs, under 1 MB), so its matches show how the
+interface works rather than how well retrieval does; the other corpora in **Settings** need their data
+locally and report an error here.
 
 > Research demo — retrieval is approximate. Frozen vision–language change retrieval hits a
 > ≈0.20 cross-validated-mAP ceiling, with recovery scaling by how visually salient the change is.
