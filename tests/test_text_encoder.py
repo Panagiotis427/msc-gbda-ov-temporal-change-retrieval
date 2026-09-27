@@ -149,11 +149,12 @@ class TestFrozenTextEncoder:
                 model_name="laion/CLIP-ViT-bigG-14-laion2B-39B-b160k",
                 cache_dir="/tmp/clip-test-cache"
             )
-            assert encoder.model.config.hidden_size == 1280, \
-                "BigG model has hidden size 1280"
-        except Exception as e:
-            # Model might not be available in test environment
+        except OSError as e:
+            # Weights unavailable (no network and no cache): skip, as _load_encoder does
             pytest.skip(f"Model download failed: {e}")
+        # AutoModel loads a full CLIPModel, so the text tower's width sits in text_config
+        assert encoder.model.config.text_config.hidden_size == 1280, \
+            "BigG text encoder has hidden size 1280"
 
     def test_embedding_values_reasonable(self, encoder):
         """Test that embedding values are within reasonable range."""
