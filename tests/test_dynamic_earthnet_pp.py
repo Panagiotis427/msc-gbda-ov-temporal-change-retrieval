@@ -13,6 +13,7 @@ non-trivial one is 191; verified stable in both float32 and float64).
 from pathlib import Path
 
 import numpy as np
+import pytest
 from PIL import Image
 
 from src.datasets.dynamic_earthnet_pp import _compose_ndvi, _compose_nrg
@@ -55,7 +56,8 @@ def test_compose_nrg_missing_infra_falls_back_to_red(tmp_path):
     rgb_p = _save_png(_RGB, tmp_path / "b_rgb.png")
     missing = tmp_path / "b_infra.png"  # deliberately not created
 
-    out = np.array(_compose_nrg(rgb_p, missing))
+    with pytest.warns(RuntimeWarning, match="NIR frame missing"):
+        out = np.array(_compose_nrg(rgb_p, missing))
 
     np.testing.assert_array_equal(out[:, :, 0], _RGB[:, :, 0])
     np.testing.assert_array_equal(out[:, :, 1], _RGB[:, :, 0])
@@ -80,5 +82,6 @@ def test_compose_ndvi_missing_infra_is_neutral(tmp_path):
     rgb_p = _save_png(_RGB, tmp_path / "d_rgb.png")
     missing = tmp_path / "d_infra.png"
 
-    out = np.array(_compose_ndvi(rgb_p, missing))
+    with pytest.warns(RuntimeWarning, match="NIR frame missing"):
+        out = np.array(_compose_ndvi(rgb_p, missing))
     np.testing.assert_array_equal(out, np.full((2, 2, 3), 127, dtype=np.uint8))

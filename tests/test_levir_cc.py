@@ -57,7 +57,8 @@ def test_caption_derived_tags(ds):
 
 def test_split_filter(tmp_path):
     _make_fixture(tmp_path)
-    assert len(LevirCCDataset(root=tmp_path, split="train").list_pairs()) == 0
+    with pytest.warns(UserWarning, match="no pairs found"):
+        assert len(LevirCCDataset(root=tmp_path, split="train").list_pairs()) == 0
     assert len(LevirCCDataset(root=tmp_path, split="test").list_pairs()) == 3
 
 

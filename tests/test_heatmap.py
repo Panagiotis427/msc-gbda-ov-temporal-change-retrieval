@@ -186,7 +186,8 @@ class TestExtractAttentionWeights:
     """Tests for extract_attention_weights() function."""
 
     @pytest.fixture(scope="class")
-    def create_mock_model(self):
+    @classmethod
+    def create_mock_model(cls):
         model = MockCLIPModel(embed_dim=256)  # Smaller dim for speed
         return model
 
@@ -222,7 +223,8 @@ class TestExtractPatchAttention:
     """Tests for extract_patch_attention() function."""
 
     @pytest.fixture(scope="class")
-    def create_mock_model(self):
+    @classmethod
+    def create_mock_model(cls):
         return MockCLIPModel(embed_dim=256)
 
     def test_basic_extraction(self, create_mock_model):
