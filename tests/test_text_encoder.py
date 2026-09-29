@@ -143,18 +143,19 @@ class TestFrozenTextEncoder:
 
     def test_different_model_names(self):
         """Test that we can use different CLIP text encoders."""
-        # This just verifies the class accepts model names
+        # This just verifies the class accepts model names. ViT-B/32 (about 1 GB) differs from
+        # the default in width; ViT-bigG made every fresh cache download about 10 GB for this check.
         try:
             encoder = FrozenTextEncoder(
-                model_name="laion/CLIP-ViT-bigG-14-laion2B-39B-b160k",
+                model_name="openai/clip-vit-base-patch32",
                 cache_dir="/tmp/clip-test-cache"
             )
         except OSError as e:
             # Weights unavailable (no network and no cache): skip, as _load_encoder does
             pytest.skip(f"Model download failed: {e}")
         # AutoModel loads a full CLIPModel, so the text tower's width sits in text_config
-        assert encoder.model.config.text_config.hidden_size == 1280, \
-            "BigG text encoder has hidden size 1280"
+        assert encoder.model.config.text_config.hidden_size == 512, \
+            "ViT-B/32 text encoder has hidden size 512"
 
     def test_embedding_values_reasonable(self, encoder):
         """Test that embedding values are within reasonable range."""
