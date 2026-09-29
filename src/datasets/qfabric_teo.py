@@ -90,7 +90,7 @@ class TEOChatlasQFabricDataset:
             cand = Path(self.root).parent / "qfabric_teo_labels.json"
             labels_path = str(cand) if cand.exists() else None
         self._labels: Dict[str, str] = (
-            json.load(open(labels_path, encoding="utf-8")) if labels_path else {}
+            json.loads(Path(labels_path).read_text(encoding="utf-8")) if labels_path else {}
         )
         # keep only labelled crops
         self._crops = {ck: d for ck, d in self._crops.items() if ck in self._labels}

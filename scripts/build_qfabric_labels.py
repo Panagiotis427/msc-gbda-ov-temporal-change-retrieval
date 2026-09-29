@@ -57,7 +57,7 @@ def _match_classes(ans: str | None) -> list[str]:
 
 
 def build(rqa2_path: str, out_path: str) -> dict:
-    data = json.load(open(rqa2_path, encoding="utf-8"))
+    data = json.loads(Path(rqa2_path).read_text(encoding="utf-8"))
     # A crop can have several RQA2 records (multiple polygons / overlapping
     # answers). Resolve by MAJORITY VOTE over all answers for that crop_key —
     # not last-write-wins (which mislabels ~16% of crops with conflicts).
@@ -78,7 +78,7 @@ def build(rqa2_path: str, out_path: str) -> dict:
     crop_type = {ck: c.most_common(1)[0][0] for ck, c in votes.items()}
     n_conflict = sum(1 for c in votes.values() if len(c) > 1)
     Path(out_path).parent.mkdir(parents=True, exist_ok=True)
-    json.dump(crop_type, open(out_path, "w"), indent=0)
+    Path(out_path).write_text(json.dumps(crop_type, indent=0))
     print(f"Wrote {len(crop_type)} crop labels -> {out_path} "
           f"({n_conflict} crops had conflicting answers, resolved by majority)")
     print("change-type distribution:", dict(Counter(crop_type.values())))

@@ -66,7 +66,7 @@ class StatusQFabricDataset(TEOChatlasQFabricDataset):
             cand = Path(self.root).parent / "qfabric_status_labels.json"
             labels_path = str(cand) if cand.exists() else None
         self._status: Dict[str, Dict[str, str]] = (
-            json.load(open(labels_path, encoding="utf-8")) if labels_path else {}
+            json.loads(Path(labels_path).read_text(encoding="utf-8")) if labels_path else {}
         )
         # keep crops with >= 2 status-labelled timepoints (>= 1 labelled transition)
         self._crops = {

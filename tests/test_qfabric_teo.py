@@ -22,7 +22,7 @@ def _write_fixture(tmp_path):
             Image.new("RGB", (16, 16), (n * 50, 60, 70)).save(
                 imgs / f"{loc}.d{n}.0101201{n}_{xoff}_{yoff}.tif")
     labels = tmp_path / "qfabric_teo_labels.json"
-    json.dump(spec, open(labels, "w"))
+    labels.write_text(json.dumps(spec))
     return str(imgs), str(labels), spec
 
 
@@ -85,7 +85,7 @@ def test_subsample_deterministic(tmp_path):
                     imgs / f"{loc}.d{n}.0101201{n}_{xoff}_{yoff}.tif")
             spec[ck] = ct
     labels = tmp_path / "qfabric_teo_labels.json"
-    json.dump(spec, open(labels, "w"))
+    labels.write_text(json.dumps(spec))
     a = build_dataset("qfabric_teo", root=str(imgs), labels_path=str(labels),
                       max_per_class=2, seed=42).list_locations()
     b = build_dataset("qfabric_teo", root=str(imgs), labels_path=str(labels),
@@ -105,7 +105,7 @@ def _split_fixture(tmp_path):
                     imgs / f"{loc}.d{n}.0101201{n}_{xoff}_{yoff}.tif")
             spec[ck] = ct
     labels = tmp_path / "qfabric_teo_labels.json"
-    json.dump(spec, open(labels, "w"))
+    labels.write_text(json.dumps(spec))
     return str(imgs), str(labels)
 
 

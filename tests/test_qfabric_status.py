@@ -25,7 +25,7 @@ def _write_fixture(tmp_path):
             Image.new("RGB", (16, 16), (i * 40, 60, 70)).save(
                 imgs / f"{loc}.d{i}.0101201{i}_{xoff}_{yoff}.tif")
     labels = tmp_path / "qfabric_status_labels.json"
-    json.dump(status, open(labels, "w"))
+    labels.write_text(json.dumps(status))
     return str(imgs), str(labels), status
 
 
@@ -105,7 +105,7 @@ def test_split_disjoint(tmp_path):
                     imgs / f"{loc}.d{i}.0101201{i}_{xoff}_{yoff}.tif")
             status[ck] = {"d1": "greenland", "d2": final}
     labels = tmp_path / "qfabric_status_labels.json"
-    json.dump(status, open(labels, "w"))
+    labels.write_text(json.dumps(status))
     tr = set(build_dataset("qfabric_status", root=str(imgs), labels_path=str(labels),
                            split="train", train_frac=0.8, seed=42).list_locations())
     te = set(build_dataset("qfabric_status", root=str(imgs), labels_path=str(labels),

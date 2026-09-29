@@ -94,7 +94,7 @@ def _image_index(question: str) -> int | None:
 
 
 def build(rqa5_path: str, out_path: str) -> dict:
-    data = json.load(open(rqa5_path, encoding="utf-8"))
+    data = json.loads(Path(rqa5_path).read_text(encoding="utf-8"))
     # (crop_key, day) -> Counter of status votes (a timepoint may be asked about
     # by several records / overlapping polygons). Resolve by MAJORITY VOTE.
     votes: dict[tuple[str, str], Counter] = defaultdict(Counter)
@@ -127,7 +127,7 @@ def build(rqa5_path: str, out_path: str) -> dict:
            for ck, days in nested.items()}
 
     Path(out_path).parent.mkdir(parents=True, exist_ok=True)
-    json.dump(out, open(out_path, "w"), indent=0)
+    Path(out_path).write_text(json.dumps(out, indent=0))
 
     n_tp = sum(len(d) for d in out.values())
     print(f"Wrote {len(out)} crops / {n_tp} timepoint labels -> {out_path} "

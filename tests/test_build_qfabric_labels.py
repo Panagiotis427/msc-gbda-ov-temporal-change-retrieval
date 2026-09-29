@@ -28,17 +28,17 @@ def test_majority_vote_resolves_conflict(tmp_path):
         _rec(20, 1, 0, 0, "Road"),
         _rec(20, 2, 0, 0, "Road"),
     ]
-    json.dump(recs, open(rqa2, "w"))
+    rqa2.write_text(json.dumps(recs))
     out = tmp_path / "labels.json"
     labels = build(str(rqa2), str(out))
     assert labels["10_0_0"] == "residential"   # majority, NOT last-seen commercial
     assert labels["20_0_0"] == "road"
     # round-trips to disk
-    assert json.load(open(out)) == labels
+    assert json.loads(out.read_text()) == labels
 
 
 def test_mega_projects_normalised(tmp_path):
     rqa2 = tmp_path / "rqa2.json"
-    json.dump([_rec(30, 1, 256, 512, "Mega Projects")], open(rqa2, "w"))
+    rqa2.write_text(json.dumps([_rec(30, 1, 256, 512, "Mega Projects")]))
     labels = build(str(rqa2), str(tmp_path / "o.json"))
     assert labels["30_256_512"] == "mega_projects"

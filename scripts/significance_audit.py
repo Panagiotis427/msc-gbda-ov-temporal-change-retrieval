@@ -62,7 +62,8 @@ def collect(results_dir="results"):
     for f in sorted(glob.glob(os.path.join(results_dir, "*.json"))):
         if "confusion" in f or "rerank" in f:
             continue  # different schema; rerank is handled by eval_rerank.py
-        d = json.load(open(f))
+        with open(f, encoding="utf-8") as fh:
+            d = json.load(fh)
         pq = d.get("per_query")
         if not pq:
             continue

@@ -78,8 +78,8 @@ def test_non_temporal_task_ignored(tmp_path):
 
 def build_from(recs, tmp_path):
     src = tmp_path / "rqa5.json"
-    json.dump(recs, open(src, "w"))
+    src.write_text(json.dumps(recs))
     out = tmp_path / "status.json"
     res = build(str(src), str(out))
-    assert json.load(open(out)) == res        # round-trips to disk
+    assert json.loads(out.read_text()) == res        # round-trips to disk
     return res
