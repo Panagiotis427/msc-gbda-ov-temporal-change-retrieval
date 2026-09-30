@@ -190,9 +190,16 @@ class OpenClipHFEncoder:
             x = torch.cat([cls, x], dim=1)
             x = x + v.positional_embedding.to(x.dtype)
             x = v.ln_pre(x)
-            x = x.permute(1, 0, 2)
+            # open_clip >= 2.24 builds the transformer batch-first ([N, L, D]); earlier releases are
+            # sequence-first ([L, N, D]). Handing a batch-first transformer the sequence-first layout
+            # makes every patch attend only to itself (one image per call) or to the same position in
+            # the other images of a batch, so the layout follows the transformer.
+            seq_first = not getattr(v.transformer, "batch_first", False)
+            if seq_first:
+                x = x.permute(1, 0, 2)
             x = v.transformer(x)
-            x = x.permute(1, 0, 2)
+            if seq_first:
+                x = x.permute(1, 0, 2)
             x = v.ln_post(x)
             if getattr(v, "proj", None) is not None:
                 x = x @ v.proj
