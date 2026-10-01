@@ -102,6 +102,9 @@ class OpenClipHFEncoder:
 
     name: str = "openclip"
     embed_dim: int = 512
+    # 2 = patch tokens in the transformer's own layout (a07b8a6); caches of per-patch embeddings written
+    # before carry no marker and are not reused for these encoders (see patch_cache_path)
+    patch_tokens_version: int = 2
     image_input_size: int = 224
     _arch: str = "ViT-B-32"
     _hf_repo: str = ""

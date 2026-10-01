@@ -65,7 +65,8 @@ _DATASETS = {
 
 def _patch_embeddings(ds, enc, enc_name, split, cache_dir, dataset):
     """Encode (or load) per-pair T1/T2 patch embeddings → P1, P2 [N, n_patch, D]."""
-    cache = Path(cache_dir) / f"locpatch__{dataset}__{enc_name}__{split}.npz"
+    from src.embeddings import patch_version_suffix
+    cache = Path(cache_dir) / f"locpatch__{dataset}__{enc_name}__{split}{patch_version_suffix(enc_name)}.npz"
     pairs = ds.list_pairs()
     if cache.exists():
         d = np.load(cache, allow_pickle=False)

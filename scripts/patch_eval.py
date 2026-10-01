@@ -51,8 +51,9 @@ def _encode_patches(ds, enc, cache_dir, enc_name, color, pairing="bimonthly"):
     The cache key gains a ``__{pairing}`` suffix only for non-default pairings, so
     the committed bimonthly cache filename (and its reproducible numbers) is
     unchanged while monthly etc. get their own cache."""
+    from src.embeddings import patch_version_suffix
     tag = "" if pairing == "bimonthly" else f"__{pairing}"
-    cache = Path(cache_dir) / f"patch__{enc_name}__{color}{tag}.npz"
+    cache = Path(cache_dir) / f"patch__{enc_name}__{color}{tag}{patch_version_suffix(enc_name)}.npz"
     pairs = ds.list_pairs()
     if cache.exists():
         d = np.load(cache, allow_pickle=False)
@@ -61,7 +62,8 @@ def _encode_patches(ds, enc, cache_dir, enc_name, color, pairing="bimonthly"):
             return d["p1"], d["p2"], pairs
     print(f"encoding {len(pairs)} pairs to patch embeddings ({enc_name}, {color})...")
     # Encode a chunk of images per GPU pass instead of one image at a time — the
-    # encoder's per-image patch tokens are independent, so batching is numerically
+    # encoder's per-image patch tokens are independent (since a07b8a6; before it, the
+    # open_clip encoders mixed the images of a batch), so batching is numerically
     # identical while collapsing ~2N single-image forward passes into ~2N/B batched
     # ones (B=32). Chunked so host memory stays bounded (mirrors
     # src.embeddings.compute_patch_embeddings). Cold-cache path only.

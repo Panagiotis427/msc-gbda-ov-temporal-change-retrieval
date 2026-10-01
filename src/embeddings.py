@@ -43,7 +43,14 @@ def patch_cache_path(cache_dir: str | Path, dataset_name: str, encoder_name: str
     keyed by the same ``<split>[_<color>][_lora]`` tag so it never aliases another
     split/colour combination."""
     suffix = f"__{tag}" if tag else ""
-    return Path(cache_dir) / f"{dataset_name}__{encoder_name}{suffix}__patch_embeddings.npz"
+    return Path(cache_dir) / f"{dataset_name}__{encoder_name}{suffix}{patch_version_suffix(encoder_name)}__patch_embeddings.npz"
+
+
+def patch_version_suffix(encoder_name: str) -> str:
+    """``__ctx`` for the open_clip encoders, whose per-patch tokens changed at a07b8a6 (before it, each patch
+    passed through the transformer without attending to the others), so an older cache is never reused; the
+    Hugging Face CLIP encoder was always contextual and keeps its cache names."""
+    return "__ctx" if encoder_name in ("georsclip", "remoteclip") else ""
 
 
 _KNOWN_COLORS = ("rgb", "nrg", "ndvi")
@@ -203,7 +210,7 @@ def load_or_compute(
 
 
 # ---------------------------------------------------------------------------
-# Per-patch embedding cache (localised / patch-level retrieval, REPORT B.10)
+# Per-patch embedding cache (localised / patch-level retrieval, report §8.1)
 # ---------------------------------------------------------------------------
 # Patch-level Δ-similarity needs per-patch embeddings for the *whole* corpus.
 # Encoding them at first ``approach="patch"`` query stalls the UI for the length
