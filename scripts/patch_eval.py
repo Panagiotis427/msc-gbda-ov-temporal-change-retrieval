@@ -56,10 +56,10 @@ def _encode_patches(ds, enc, cache_dir, enc_name, color, pairing="bimonthly"):
     cache = Path(cache_dir) / f"patch__{enc_name}__{color}{tag}{patch_version_suffix(enc_name)}.npz"
     pairs = ds.list_pairs()
     if cache.exists():
-        d = np.load(cache, allow_pickle=False)
-        if int(d["n"]) == len(pairs):
-            print(f"loaded patch cache {cache} (N={int(d['n'])})")
-            return d["p1"], d["p2"], pairs
+        with np.load(cache, allow_pickle=False) as d:
+            if int(d["n"]) == len(pairs):
+                print(f"loaded patch cache {cache} (N={int(d['n'])})")
+                return d["p1"], d["p2"], pairs
     print(f"encoding {len(pairs)} pairs to patch embeddings ({enc_name}, {color})...")
     # Encode a chunk of images per GPU pass instead of one image at a time — the
     # encoder's per-image patch tokens are independent (since a07b8a6; before it, the

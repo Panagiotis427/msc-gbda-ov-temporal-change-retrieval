@@ -1,7 +1,7 @@
 """
 Dynamic EarthNet — native Planet-Fusion 3 m raster loader (official TUM zips).
 
-This is the full-resolution counterpart to :mod:`dynamic_earthnet` (the 5-AOI
+This is the full-resolution counterpart to :mod:`dynamic_earthnet` (the 75-AOI
 preprocessed gdown subset) and :mod:`dynamic_earthnet_pp` (the DynNet ``.npy``
 subset). It reads the *official* DynamicEarthNet release (TUM mediatum,
 https://mediatum.ub.tum.de/1738088) straight out of its zip archives — nothing is

@@ -69,10 +69,10 @@ def _patch_embeddings(ds, enc, enc_name, split, cache_dir, dataset):
     cache = Path(cache_dir) / f"locpatch__{dataset}__{enc_name}__{split}{patch_version_suffix(enc_name)}.npz"
     pairs = ds.list_pairs()
     if cache.exists():
-        d = np.load(cache, allow_pickle=False)
-        if int(d["n"]) == len(pairs):
-            print(f"loaded patch cache {cache} (N={int(d['n'])})")
-            return d["p1"], d["p2"], pairs
+        with np.load(cache, allow_pickle=False) as d:
+            if int(d["n"]) == len(pairs):
+                print(f"loaded patch cache {cache} (N={int(d['n'])})")
+                return d["p1"], d["p2"], pairs
     print(f"encoding {len(pairs)} pairs to patch embeddings ({enc_name}, {split})...")
     # Batch the encode: collect a chunk of tiles and encode each side in one pass
     # rather than one single-image forward per tile. Per-image patch tokens are

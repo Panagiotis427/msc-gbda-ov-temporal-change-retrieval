@@ -1,5 +1,5 @@
 """
-Dynamic EarthNet dataset loader (5-AOI preprocessed subset).
+Dynamic EarthNet dataset loader (the preprocessed 75-AOI subset).
 
 Expected on-disk layout (after running ``scripts/download_den.py``):
 
@@ -18,14 +18,14 @@ Pairing strategies
 ------------------
 ``bimonthly`` (default)
     First-of-month tile per AOI, sub-sampled to every other month
-    → ≤12 consecutive pairs per AOI × 5 AOIs = ≤60 pairs total.
+    → ≤11 consecutive pairs per AOI (825 pairs over the 75 AOIs).
 
 ``monthly``
-    All first-of-month tiles → ≤24 pairs per AOI.
+    All first-of-month tiles → ≤23 pairs per AOI.
 
 ``seasonal-quartet``
     Winter / spring / summer / autumn representative tiles
-    → ≤4 pairs per AOI.
+    → ≤3 pairs per AOI.
 """
 from __future__ import annotations
 

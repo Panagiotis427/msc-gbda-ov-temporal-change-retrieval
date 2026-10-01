@@ -24,24 +24,26 @@ quantitative change localisation.
 **Try it live:** the current UI runs over a bundled synthetic corpus, no install, on the
 [deployed HuggingFace Space](https://huggingface.co/spaces/panagiotis427/Open_Vocabulary_Temporal_Change_Retrieval).
 
-![Gradio UI — semantic change search engine](report/figures/app_screenshot.png)
+![Gradio UI — semantic change search engine](demos/app_screenshot.png)
 
 **Screen recordings** (`demos/`, click to play on GitHub) —
 [1](demos/demo_1.mp4) · [2](demos/demo_2.mp4) · [3](demos/demo_3.mp4) the app in default settings
 (LEVIR-MCI — the documented default, sharing LEVIR-CC's pairs — GeoRSCLIP, zero-shot) running the built-in example searches;
 [4](demos/demo_4.mp4) a custom free-text query (open-vocabulary);
 [5](demos/demo_5.mp4) switching dataset (LEVIR-MCI → Dynamic EarthNet) and scoring approach
-(zero-shot → patch / localised).
+(zero-shot → patch / localised). The recordings predate the patch-token correction, so their
+GeoRSCLIP heatmaps are the uncorrected ones ([note 2](#2-patch-level-results-of-georsclip-and-remoteclip)).
 
 *Enter a free-text change query, pick a dataset / encoder / scoring approach, and get
-ranked before→after pairs with a change heatmap on T2.* To (re)generate the screenshot
-locally (it lands in `report/figures/app_screenshot.png`):
+ranked before→after pairs with a change heatmap on T2.* The screenshot is the app on its
+default corpus (`python -m src.app`, the first example query), which needs LEVIR-MCI under
+`data/_levir_mci/extracted/LEVIR-MCI-dataset`; the bundled fixture runs the same UI with no
+download, as the Space does:
 
 ```bash
 pip install -e .
 python -m scripts.make_den_fixture
-python -m src.app --root tests/fixtures/den_tiny --split all --encoder clip_vitl14   # http://127.0.0.1:7860
-# then save a screenshot of the browser tab to report/figures/app_screenshot.png
+python -m src.app --dataset dynamic_earthnet --root tests/fixtures/den_tiny --split all --encoder clip_vitl14   # http://127.0.0.1:7860
 ```
 
 ## Pipeline
@@ -211,7 +213,7 @@ pip install -e .
 python -m scripts.make_den_fixture
 # Builds tests/fixtures/den_tiny/: 2 AOIs × 8 months, <1 MB, deterministic.
 
-python -m src.app --root tests/fixtures/den_tiny --split all --encoder clip_vitl14
+python -m src.app --dataset dynamic_earthnet --root tests/fixtures/den_tiny --split all --encoder clip_vitl14
 # First run downloads CLIP weights (~1.6 GB) into .model_cache/ — one-time.
 # Open http://127.0.0.1:7860
 ```
@@ -516,7 +518,7 @@ The native-raster row of Table 21 uses the class maps of the native loader; the 
 
 ### 15. Smaller corrections
 
-Abstract and Section 8.1: the in-distribution scores of the adapters span 0.335 to 0.999 (projection head 0.335 to 0.420 on Dynamic EarthNet and 0.998 to 0.999 on QFabric; LoRA 0.135 to 0.168), not 0.420 to 0.999 or 0.42 to 0.998. Section 8.2: the training lift of the projection head over zero-shot is 6 to 10 times, not 8 to 10 (RemoteCLIP: 0.352 against 0.057), and "where GeoRSCLIP leads" holds for frozen zero-shot on test, not for the adapters. Section 8.5: the industrial change-type AP is 0.29 and mega-projects 0.02 (0.2946 and 0.0246); the naive lead over zero-shot on change types is 0.09 for CLIP and GeoRSCLIP and 0.05 for RemoteCLIP; the margins of Table 12 (+0.000, +0.005 and +0.007) carry no paired test and are read as ties; "the opposite of DEN" and "harmful on DEN" hold for GeoRSCLIP, whereas for RemoteCLIP on the Dynamic EarthNet test split naive beats zero-shot (0.121 against 0.050) and the adapter beats zero-shot (0.103). Section 11: "all mAP figures use LULC-derived pseudo-labels" holds for Dynamic EarthNet only, the relevance of LEVIR-CC and SECOND-CC comes from human captions and that of QFabric from its annotated change types; fMoW has no change labels and no loader (Section 3 lists it as a source of functional change taxonomies; this README marks it rejected); in `aoi_metadata.json` 46 of 75 areas have Sentinel-1 for all 24 months (51 have at least 21). Section 10: seeds fix the partitions and the training, not the non-determinism of the GPU. Table 17: the projection head is 0.17% of the 768-dimensional backbones and 0.35% of GeoRSCLIP, not under 0.2% for all. Table 18: the rows sum to 19.9 GB (12.8 GB without the archive). Table 19: the fast test suite took about 65 s on the original machine and takes about two minutes on a laptop CPU.
+Abstract and Section 8.1: the in-distribution scores of the adapters span 0.335 to 0.999 (projection head 0.335 to 0.420 on Dynamic EarthNet and 0.998 to 0.999 on QFabric; LoRA 0.135 to 0.168), not 0.420 to 0.999 or 0.42 to 0.998. Section 8.2: the training lift of the projection head over zero-shot is 6 to 10 times, not 8 to 10 (RemoteCLIP: 0.352 against 0.057), and "where GeoRSCLIP leads" holds for frozen zero-shot on test, not for the adapters. Section 8.5: the industrial change-type AP is 0.29 and mega-projects 0.02 (0.2946 and 0.0246); the naive lead over zero-shot on change types is 0.09 for CLIP and GeoRSCLIP and 0.05 for RemoteCLIP; the margins of Table 12 (+0.000, +0.005 and +0.007) carry no paired test and are read as ties; "the opposite of DEN" and "harmful on DEN" hold for GeoRSCLIP, whereas for RemoteCLIP on the Dynamic EarthNet test split naive beats zero-shot (0.121 against 0.050) and the adapter beats zero-shot (0.103). Section 11: "all mAP figures use LULC-derived pseudo-labels" holds for Dynamic EarthNet only, the relevance of LEVIR-CC and SECOND-CC comes from human captions and that of QFabric from its annotated change types; fMoW has no change labels and no loader (Section 3 lists it as a source of functional change taxonomies; this README marks it rejected); in `aoi_metadata.json` 46 of 75 areas have Sentinel-1 for all 24 months (51 have at least 21). Section 10: seeds fix the partitions and the training, not the non-determinism of the GPU, and the Gradio command needs `--dataset dynamic_earthnet`, because the app opens LEVIR-CC by default and otherwise looks for its captions in the Dynamic EarthNet folder. Table 17: the projection head is 0.17% of the 768-dimensional backbones and 0.35% of GeoRSCLIP, not under 0.2% for all. Table 18: the rows sum to 19.9 GB (12.8 GB without the archive). Table 19: the fast test suite took about 65 s on the original machine and takes about two minutes on a laptop CPU. Appendix C: the re-ranking comparison rests on the three test queries with positives, five each (15 positives in all), and carries no interval or test, so "both strategies reduce retrieval quality" is a point reading on that sample.
 
 ## License
 
