@@ -220,11 +220,14 @@ def main() -> None:
     ap.add_argument("--results-dir", default="results")
     ap.add_argument("--out-dir", default="report/figures")
     ap.add_argument("--svg", action="store_true")
+    ap.add_argument("--dataset", default="dynamic_earthnet",
+                    help="the figures compare encoders and approaches within ONE dataset; the results folder "
+                         "holds several (records of other datasets would overwrite the same keys)")
     ap.add_argument("--only", nargs="*", default=None,
                     help="Subset of: recall map color drift cross (default: all)")
     args = ap.parse_args()
 
-    records = load_all(args.results_dir)
+    records = [r for r in load_all(args.results_dir) if r.get("dataset") == args.dataset]
     if not records:
         print(f"No results in {args.results_dir}/ — run scripts.export_results first.")
         return

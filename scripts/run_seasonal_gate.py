@@ -3,7 +3,7 @@
 Runs the image-level ``zero_shot`` change gate (``src.seasonal_gate``) over the
 DEN stable pairs and reports the false-positive rate as a function of the decision
 threshold. This is the direct seasonal-robustness probe that complements the
-benchmark's ``seasonal_drift@K`` (N/A on the current corpora). See REPORT §7.
+benchmark's ``seasonal_drift@K`` (N/A on the current corpora). See the report's §7 (the metric) and §8.4 (this gate).
 
 For each change-description query ``t`` and stable pair ``(T1, T2)`` the gate scores
 ``Δ = cos(t, f_T2) − cos(t, f_T1)`` on whole-image embeddings; a stable pair with

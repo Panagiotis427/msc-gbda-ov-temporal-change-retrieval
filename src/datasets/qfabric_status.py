@@ -11,7 +11,7 @@ exposed via ``PairLabel.dominant_t1_class`` / ``dominant_t2_class`` so the
 existing ``benchmark._transition`` predicates and ``src/queries/qfabric_status``
 can target src->dst transitions. Status is a temporal progression, so this is
 the QFabric task where the directional ``zero_shot`` Δ-signal is expected to
-beat ``naive`` (cos(text, f_T2)) — the opposite regime to change-type (§7.8).
+beat ``naive`` (cos(text, f_T2)) — the opposite regime to change-type (report §8.5).
 
 Crop discovery / pairing / image loading are inherited unchanged; only the
 label model, ``get_pair_label``, PEFT captions, and the (per-crop, by

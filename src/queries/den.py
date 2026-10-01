@@ -55,11 +55,11 @@ register_queries("dynamic_earthnet_planet", QUERIES)
 
 # ---------------------------------------------------------------------------
 # A-priori change *geometry* per query — for the query-type-gated global/patch
-# hybrid (REPORT Appendix B.13). Tagged from the change's spatial extent ALONE,
+# hybrid (report §8.3). Tagged from the change's spatial extent ALONE,
 # never fit to the results (no peeking): compact / point-like features whose
 # signal lives in a few patches -> "localised" (patch_top3 wins, B.10); broad /
 # areal cover change that moves the whole-tile embedding -> "diffuse" (global
-# Delta wins, B.8). Borderline footprints (deforestation, bare soil) are tagged
+# Delta wins, report §8.1). Borderline footprints (deforestation, bare soil) are tagged
 # by their typical extent and called out in B.13. Consumed by
 # ``scripts/patch_eval.py --approach gated``; keyed by the shared query text
 # (identical across QUERIES and frac_queries).

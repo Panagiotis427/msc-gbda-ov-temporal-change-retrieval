@@ -56,8 +56,8 @@ def extract_qfabric(tar_path: str, crops_root: str) -> int:
 
 
 def _run_zeroshot(args) -> list:
-    """Whole-corpus naive/zero_shot benchmark (REPORT §7.8 change-type /
-    §7.10 status-transition, selected by ``args.dataset``)."""
+    """Whole-corpus naive/zero_shot benchmark (report §8.5: change-type /
+    status-transition, selected by ``args.dataset``)."""
     written = []
     for enc_name in args.encoders:
         print(f"\n=== encoder: {enc_name} (zero-shot) ===")
@@ -79,7 +79,7 @@ def _run_zeroshot(args) -> list:
 
 def _run_peft(args) -> list:
     """Train a ProjectionHead adapter on a held-out train split; evaluate
-    naive/zero_shot/peft on train + test (REPORT §7.9 / §7.10). Difference mode."""
+    naive/zero_shot/peft on train + test (report §8.5). Difference mode."""
     written = []
     mpc = args.max_per_class
     for enc_name in args.encoders:
@@ -130,7 +130,7 @@ def main() -> None:
                     help="Label sidecar; defaults per --status (change-type vs status).")
     ap.add_argument("--status", action="store_true",
                     help="Benchmark RQA5 status-transition retrieval (dataset "
-                         "'qfabric_status', REPORT §7.10) instead of RQA2 change-type.")
+                         "'qfabric_status', report §8.5) instead of RQA2 change-type.")
     ap.add_argument("--encoders", nargs="+",
                     default=["clip_vitl14", "georsclip", "remoteclip"])
     ap.add_argument("--max-per-class", type=int, default=120,
@@ -143,7 +143,7 @@ def main() -> None:
     ap.add_argument("--extract-only", action="store_true")
     ap.add_argument("--peft", action="store_true",
                     help="Train a ProjectionHead adapter on a held-out train split and "
-                         "evaluate naive/zero_shot/peft on train+test (REPORT §7.9/§7.10).")
+                         "evaluate naive/zero_shot/peft on train+test (report §8.5).")
     ap.add_argument("--epochs", type=int, default=40)
     args = ap.parse_args()
 

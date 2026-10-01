@@ -97,7 +97,7 @@ class TEOChatlasQFabricDataset:
 
         # optional deterministic, stratified train/test split (for PEFT
         # generalisation: train the adapter on `train`, evaluate on held-out
-        # `test`). split=None keeps the whole corpus (the §7.8 setup).
+        # `test`). split=None keeps the whole corpus (the report §8.5 setup).
         if split in ("train", "test"):
             self._crops = self._train_test_split(split, train_frac, seed)
 

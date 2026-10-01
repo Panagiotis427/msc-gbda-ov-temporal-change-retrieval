@@ -9,7 +9,7 @@ the official ``planet.<UTM>.zip`` archives — see
 ``src/datasets/dynamic_earthnet_planet.py``).
 
 What it does, identical in spirit to the JPEG evaluator so the two are directly
-comparable (REPORT §"Native 3 m raster source"):
+comparable (report Appendix A, the native 3 m raster source):
 
 1. **Full-corpus estimate** — per-query AP over all pairs with a bootstrap 95% CI
    and a permutation p-value vs random ranking.

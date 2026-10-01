@@ -1,5 +1,5 @@
 """
-Re-ranking quantification benchmark (REPORT §7.5) — artifact-backed.
+Re-ranking quantification benchmark (report Appendix C) — artifact-backed.
 
 ``src/rerank.py`` post-processes a ranked result list (``diversity`` =
 greedy location-deduplication; ``coherence`` = haversine proximity to the
@@ -131,7 +131,7 @@ def _print_table(report: dict) -> None:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Re-ranking quantification (REPORT §7.5)")
+    ap = argparse.ArgumentParser(description="Re-ranking quantification (report Appendix C)")
     ap.add_argument("--encoder", default="georsclip")
     ap.add_argument("--color-mode", default="nrg")
     ap.add_argument("--split", default="test")

@@ -69,7 +69,7 @@ def generate_change_heatmap(
 
     Localises where the query's presence *grew* from T1 to T2 via the per-patch
     Δ-similarity ``cos(t, P2_p) - cos(t, P1_p)`` (the same signal as the S3
-    patch-level scorer, REPORT Appendix B.10) — unlike ``generate_heatmap`` which
+    patch-level scorer, report §8.1) — unlike ``generate_heatmap`` which
     only matches the query against the After image and ignores T1.
 
     Pass ``precomputed_p1``/``precomputed_p2`` (``[n_patch, D]`` L2-normed patch

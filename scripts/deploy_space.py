@@ -16,8 +16,8 @@ the repo ``README.md``, ``report/``, ``data/``, ``local/``, tests, and
 ``pyproject.toml`` (its cu128 torch pins would break HF's build — the Space
 installs plain ``requirements.txt``).
 
-``delete_patterns=["*"]`` gives the Space a clean slate (stale files not re-uploaded
-are removed in the same commit).
+One commit gives the Space a clean slate: files not re-uploaded are removed in the same commit, and
+compiled ``.pyc`` files are never uploaded.
 
 Auth: uses your cached ``huggingface-cli login`` token (or the ``HF_TOKEN`` env var).
 
@@ -26,39 +26,37 @@ Run from the repo root:
 """
 from __future__ import annotations
 
-from huggingface_hub import HfApi
+from pathlib import Path
+
+from huggingface_hub import CommitOperationAdd, CommitOperationDelete, HfApi
 
 REPO_ID = "panagiotis427/Open_Vocabulary_Temporal_Change_Retrieval"
 
-ALLOW = [
-    "app.py",
-    "requirements.txt",
-    "src/*",             # fnmatch '*' spans '/', so this is recursive
-    "tests/fixtures/*",
-]
+
+def _files() -> list:
+    """What the Space needs: the entry point, requirements, the package and the bundled fixture -- never a
+    compiled file (a .pyc embeds the absolute path it was compiled at)."""
+    keep = [Path("app.py"), Path("requirements.txt")]
+    for root in (Path("src"), Path("tests/fixtures")):
+        keep += [p for p in sorted(root.rglob("*"))
+                 if p.is_file() and "__pycache__" not in p.parts and p.suffix not in (".pyc", ".pyo")]
+    return keep
 
 
 def main() -> None:
     api = HfApi()
     who = api.whoami().get("name", "?")
-    print(f"Deploying {REPO_ID} as {who} (slim: code + fixture)…")
-    api.upload_folder(
-        repo_id=REPO_ID,
-        repo_type="space",
-        folder_path=".",
-        allow_patterns=ALLOW,
-        delete_patterns=["*"],  # clean slate — drop stale files not re-uploaded
-        commit_message="Deploy current UI (code + fixture; gradio 6.18)",
-    )
-    # The Space's landing page = its own front-matter config + a concise app blurb,
-    # uploaded as README.md so the GitHub repo README stays front-matter-free.
-    api.upload_file(
-        path_or_fileobj="scripts/space_readme.md",
-        path_in_repo="README.md",
-        repo_id=REPO_ID,
-        repo_type="space",
-        commit_message="Space landing page (front-matter config + app description)",
-    )
+    ops = [CommitOperationAdd(path_in_repo=p.as_posix(), path_or_fileobj=str(p)) for p in _files()]
+    # the Space's landing page: its own front-matter config + a concise app blurb, as README.md, so the
+    # GitHub README stays front-matter-free; uploaded in the same commit, so the config is never missing
+    ops.append(CommitOperationAdd(path_in_repo="README.md", path_or_fileobj="scripts/space_readme.md"))
+    new = {op.path_in_repo for op in ops}
+    stale = [f for f in api.list_repo_files(REPO_ID, repo_type="space")
+             if f not in new and f != ".gitattributes"]          # a clean slate, the LFS config kept
+    ops += [CommitOperationDelete(path_in_repo=f) for f in stale]
+    print(f"Deploying {REPO_ID} as {who}: {len(new)} files, {len(stale)} stale removed")
+    api.create_commit(repo_id=REPO_ID, repo_type="space", operations=ops,
+                      commit_message="Deploy the app: code, fixture and landing page")
     print(f"Done. Watch the build: https://huggingface.co/spaces/{REPO_ID}")
 
 

@@ -197,10 +197,10 @@ DATASET_PROFILES = {
                                         "max_per_class": 120}},
 }
 
-# Peak retrieval mAP achieved per dataset (REPORT §7), used only to sort the app
+# Peak retrieval mAP achieved per dataset (report §8), used only to sort the app
 # dropdown best-first so the strongest corpora surface at the top. (LEVIR salient
-# construction ~0.8; SECOND-CC buildings ~0.7; QFabric change-type ~0.27; DEN
-# patch_top3 ~0.19; QFabric status ~0.08.)
+# construction ~0.8; SECOND-CC buildings ~0.7; QFabric change-type ~0.27 naive, 0.33 with the PEFT head on
+# test; DEN patch_top3 ~0.19; QFabric status ~0.08. Rough sort keys, not results to quote.)
 DATASET_RANK = {
     "levir_mci": 0.83, "second_cc": 0.70,
     "qfabric_teo": 0.27, "dynamic_earthnet": 0.19, "qfabric_status": 0.08,
@@ -332,8 +332,8 @@ class SemanticChangeSearch:
                         border-radius: 10px !important; padding: 12px 10px !important;
                         border-width: 2px !important; border-style: solid !important;}
         .dl-before, .dl-before button {background:#1565c0 !important; border-color:#0d47a1 !important; color:#fff !important;}
-        .dl-after,  .dl-after button  {background:#1f9d76 !important; border-color:#14785a !important; color:#fff !important;}
-        .dl-heat,   .dl-heat button   {background:#e0822e !important; border-color:#b5641a !important; color:#fff !important;}
+        .dl-after,  .dl-after button  {background:#0f7a5a !important; border-color:#0b5c44 !important; color:#fff !important;}
+        .dl-heat,   .dl-heat button   {background:#a8560b !important; border-color:#7f4108 !important; color:#fff !important;}
         /* All-matches grid: each "View" button spans its tile's width. */
         .view-btn, .view-btn button {width:100% !important; font-weight:600 !important;}
         /* Tiles are display-only — the View button below is the click target, so
@@ -439,7 +439,7 @@ class SemanticChangeSearch:
 
     # -- patch (localised) scoring --------------------------------------
     def _patch_scores(self, text: str) -> np.ndarray:
-        """Localised patch-level Δ-similarity (REPORT Appendix B.10, best DEN
+        """Localised patch-level Δ-similarity (report §8.1, best DEN
         config). Per-patch embeddings for the whole corpus are loaded from the
         on-disk patch cache when warm (instant first query) and only computed +
         cached on a miss; the result is held on the engine for later queries.
@@ -516,6 +516,7 @@ class SemanticChangeSearch:
             )
         else:
             order = np.argsort(-scores, kind="stable")[:top_k]
+            order = order[np.isfinite(scores[order])]      # a filtered-out pair is never a result
 
         # For the patch approach the whole corpus's per-patch embeddings are already
         # cached (in _patch_scores), so reuse them for the change-heatmap instead of
@@ -587,7 +588,7 @@ class SemanticChangeSearch:
             f"<b>Dataset:</b> <code>{self.cfg.dataset}</code> &nbsp;|&nbsp; "
             f"<b>Split:</b> <code>{self.cfg.split or 'all'}</code> &nbsp;|&nbsp; "
             f"<b>Pairing:</b> <code>{self.cfg.pairing}</code> &nbsp;|&nbsp; "
-            f"<b>Color:</b> <code>{self.cfg.color_mode}</code> &nbsp;|&nbsp; "
+            f"<b>Color:</b> <code>{getattr(self.dataset, 'color_mode', None) or 'rgb'}</code> &nbsp;|&nbsp; "
             f"<b>Locations:</b> <code>{n_locs}</code> &nbsp;|&nbsp; "
             f"<b>Image pairs:</b> <code>{n_pairs}</code> "
             f"({per_loc:.0f}/location) &nbsp;|&nbsp; "
@@ -651,11 +652,15 @@ class SemanticChangeSearch:
 
         with gr.Blocks(title="Open Vocabulary Temporal Change Retrieval",
                        analytics_enabled=False) as demo:
+            _fixture = "tests/fixtures" in str(self.cfg.root).replace("\\", "/")
             gr.Markdown(
                 "# Open Vocabulary Temporal Change Retrieval\n"
                 "Describe a land-cover change in plain language — the semantic change search "
                 "engine finds the satellite image pairs (and the timestep) where it happened. "
                 "*Research demo — results are approximate (see **About** below).*"
+                + (f"\n\n**This hosted copy searches a bundled synthetic sample of {len(self.store)} image "
+                   "pairs**, so its results only demonstrate the interface; run it locally with the real "
+                   "corpora for real retrieval." if _fixture else "")
             )
 
             with gr.Accordion("About / How it works", open=False):
@@ -676,24 +681,27 @@ class SemanticChangeSearch:
                     "*Zero-shot* = cos(text, After) − cos(text, Before) — the temporal Δ, no "
                     "training. *Patch / localised* = top-3 per-patch Δ — it averages the three "
                     "most-changed patches, catching small localised change a whole-image embedding "
-                    "would wash out; the best configuration on Dynamic EarthNet. *PEFT adapter* = a "
+                    "would wash out; the headline configuration on Dynamic EarthNet. *PEFT adapter* = a "
                     "small trained projection head (loaded only if a matching adapter exists).\n\n"
                     "**On PEFT/LoRA (honest note).** Light fine-tuning was trained and evaluated on "
-                    "Dynamic EarthNet and QFabric only; on held-out data it does **not** beat the "
-                    "frozen zero-shot encoders (it overfits the training scenes). Frozen "
-                    "encoders + NRG + patch scoring is the strongest honestly-audited setup.\n\n"
-                    "**Reading the results.** The **match score (0–1)** is a *relative* rank within "
-                    "the returned set (min–max normalised), **not** a calibrated probability. The "
+                    "Dynamic EarthNet and QFabric only. LoRA overfits the training scenes and collapses on "
+                    "held-out ones; on Dynamic EarthNet the trained head is not significantly better than "
+                    "frozen zero-shot under cross-validation, and nothing tested significantly beats frozen encoders + "
+                    "NRG + patch scoring.\n\n"
+                    "**Reading the results.** The **match score (0–1)** is the raw score min–max "
+                    "normalised over the whole scored corpus (after any geographic filter): 1 is this "
+                    "query's best pair and 0 its worst, a *relative* position, **not** a calibrated probability. The "
                     "**change heatmap** (jet) overlays the After image: warm = where the query's "
                     "presence grew most from Before→After; cool = little/no change. The **land-cover "
                     "change note** classes each result from its dataset label: *permanent* land-cover "
                     "change, *likely seasonal* (e.g. snow/ice, which recurs annually), or *stable* "
                     "(labelled weak/no change); *no label* on unlabelled corpora.\n\n"
-                    "**Corpora (Settings → pick → Apply), sorted by best result:** LEVIR-CC "
-                    "(building/road, default — strongest), SECOND-CC (six land-cover classes), "
+                    "**Corpora (Settings → pick → Apply; each needs its data on disk, and the hosted "
+                    "copy has only the bundled sample), sorted by best reported result:** LEVIR-CC "
+                    "(building/road, the local default), SECOND-CC (six land-cover classes), "
                     "QFabric change-type (construction), Dynamic EarthNet (the report's primary "
-                    "analysed corpus; subtle spectral change, weakest absolute results), and QFabric "
-                    "construction-status (a distinct task, but retrieval is ≈ random — included for "
+                    "analysed corpus; subtle spectral change, low absolute results), and QFabric "
+                    "construction-status (a distinct task with weak retrieval, included for "
                     "completeness). Switching reloads embeddings, so press **Apply Settings**.\n\n"
                     "**Note on QFabric here:** this is the reduced *2-date* TEOChatlas crop subset "
                     "(change-type / status retrieval only). The full *5-date* QFabric with polygon "
@@ -746,7 +754,10 @@ class SemanticChangeSearch:
 
             # ---- Settings — one comprehensive menu (corpus · model · filters) ----
             _geo_available = engine._geo_filter is not None
-            _regions = engine._geo_filter.regions if _geo_available else ["All"]
+            # only regions that hold a loaded pair: another region would filter every pair out
+            _regions = (["All"] + sorted({r for r in (engine._geo_filter.region_of(p.location_id)
+                                                        for p in engine.store.pairs) if r and r != "All"})
+                        if _geo_available else ["All"])
             _rerank_available = engine._reranker is not None
 
             with gr.Accordion("Settings — corpus · model · filters", open=False):
@@ -844,8 +855,8 @@ class SemanticChangeSearch:
                         eng = pool.get(new_cfg)
                     except Exception as exc:
                         traceback.print_exc()
-                        # The session keeps its previous, working configuration.
-                        return (f"Error: {exc}",
+                        # The session keeps its previous, working configuration; the detail stays in the log.
+                        return (f"Error: {type(exc).__name__} — the corpus could not be loaded with these settings.",
                                 "<div class='stats-card stats-err'>Error</div>", cfg)
                     return _loaded_status(new_cfg, len(eng.store)), eng.stats_markdown(), new_cfg
 
@@ -982,6 +993,9 @@ class SemanticChangeSearch:
                 try:
                     progress(0.05, desc="Scoring corpus against your query… "
                              "(first query on a dataset/approach encodes it — a few seconds)")
+                    text = (text or "").strip()[:300]         # bounded, like the other inputs
+                    if not text:
+                        raise ValueError("empty query")
                     active_geo = geo_region if geo_enabled else "All"
                     active_rerank = rerank_strategy if rerank_enabled else None
                     top_k = clamp_top_k(top_k)
@@ -992,8 +1006,9 @@ class SemanticChangeSearch:
                         rerank_strategy=active_rerank,
                     )
                 except Exception as exc:
+                    traceback.print_exc()
                     return (None, None, (
-                        f"**Error:** {exc}\n\n*If you just changed Dataset / Encoder / Color mode, "
+                        f"**Error:** {type(exc).__name__}.\n\n*If you just changed Dataset / Encoder / Color mode, "
                         "press **Apply Settings** first. For PEFT, an adapter must exist for the "
                         "selected encoder + colour mode.*"), [],
                         gr.update(visible=False), gr.update(visible=False),

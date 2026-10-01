@@ -54,7 +54,7 @@ def top_patch_change_scores(p1: np.ndarray, p2: np.ndarray, t: np.ndarray,
     ``p1``/``p2`` are ``[N, n_patch, D]`` L2-normed patch embeddings (spatially
     aligned T1/T2 grids), ``t`` an ``[D]`` L2-normed text vector. Returns ``[N]``.
     A localised change region lights up a few patches even when the global
-    embedding barely moves (REPORT Appendix B.10). Shared by ``scripts/patch_eval``
+    embedding barely moves (report §8.1). Shared by ``scripts/patch_eval``
     and the Gradio app's ``patch`` approach.
     """
     delta = (p2 @ t) - (p1 @ t)                       # [N, n_patch]

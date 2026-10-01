@@ -1,8 +1,9 @@
 """
 LoRA rank/epoch sweep for GeoRSCLIP + NRG (the best zero-shot config).
 
-Baseline (rank=4, alpha=8, 20 epochs) gives test mAP 0.159 vs frozen zero-shot
-0.426 — LoRA underfits/overfits. This sweep asks whether more capacity (higher
+Baseline (rank=4, alpha=8, 20 epochs) gives test mAP 0.071 vs frozen zero-shot
+0.426 (results/lora_sweep.txt; the 0.159 of the older tracked LoRA rows predates the
+loss and target-module corrections) — LoRA memorises the training AOIs. This sweep asks whether more capacity (higher
 rank) or longer training closes the gap. Each config trains a fresh LoRA, merges
 into a fresh encoder, and benchmarks zero_shot on train + test **in memory** —
 nothing is written to models/ or data/cache, so the committed rank-4 LoRA and
