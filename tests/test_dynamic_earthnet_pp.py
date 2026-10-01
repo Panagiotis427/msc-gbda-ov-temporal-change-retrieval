@@ -85,3 +85,20 @@ def test_compose_ndvi_missing_infra_is_neutral(tmp_path):
     with pytest.warns(RuntimeWarning, match="NIR frame missing"):
         out = np.array(_compose_ndvi(rgb_p, missing))
     np.testing.assert_array_equal(out, np.full((2, 2, 3), 127, dtype=np.uint8))
+
+
+def test_npy_labels_are_read_as_den_indices_0_to_6():
+    """The preprocessed label rasters store the seven DEN classes as 0..6 with no nodata value, so index 0 is
+    impervious surface and index 6 snow and ice, never nodata and water."""
+    from src.datasets.base import PairKey
+    from src.datasets.dynamic_earthnet_pp import DENNpyDataset
+    ds = object.__new__(DENNpyDataset)            # no dataset on disk: only the label path is exercised
+    ds.stable_threshold = 0.02
+    L = np.zeros((3, 4, 4), dtype=np.uint8)       # month 0: impervious surface everywhere (index 0)
+    L[2] = 6                                       # month 2: snow and ice everywhere (index 6)
+    ds._label_cache = {"aoi": L}
+    lb = ds.get_pair_label(PairKey("aoi", "m00", "m02"))
+    assert lb.dominant_t1_class == "impervious_surface" and lb.dominant_t2_class == "snow_and_ice"
+    assert lb.class_change_mask_fraction["snow_and_ice"]["gained_fraction"] == 1.0
+    assert lb.class_change_mask_fraction["impervious_surface"]["lost_fraction"] == 1.0
+    assert not lb.stable

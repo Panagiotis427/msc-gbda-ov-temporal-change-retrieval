@@ -16,11 +16,12 @@ merges the cached train+val+test pair embeddings (= all 75 AOIs, 825 pairs):
      mean ± CI (variance over AOI samples, not over a single 3-query split).
    - peft (``--peft``): for each fold, train the adapter on the *other* folds'
      pairs and evaluate on the held-out fold — a leakage-free cross-validated
-     PEFT estimate (contrast with the train-fit 0.42/0.998 of Appendix B.5).
+     PEFT estimate (contrast with the train-fit 0.42/0.998 of report §8.2).
 
-Note: the 4 absent change-types (building / urban / deforestation / snow) have
-**zero positives anywhere in this 75-AOI subset** — CV cannot conjure them; that
-needs more diverse data (REPORT §10 / Appendix B, Tier B).
+Note: with the corrected class mapping (see the README's notes on the report), the
+building / urban change-types have **zero positives anywhere in this 75-AOI subset**
+(deforestation and snow melt have positives) — CV cannot conjure them; that needs more
+diverse data (report §11).
 
 Run::
 

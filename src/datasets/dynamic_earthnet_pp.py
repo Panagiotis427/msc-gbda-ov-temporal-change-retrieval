@@ -245,7 +245,11 @@ class DENNpyDataset:
         m1, m2 = int(pair.t1_key[1:]), int(pair.t2_key[1:])
         if m1 >= L.shape[0] or m2 >= L.shape[0]:
             return None
-        return derive_pair_label(L[m1], L[m2], self.stable_threshold)
+        # The preprocessed labels store class indices 0..6 in the DEN order (0 impervious surface ... 6 snow
+        # and ice) with no nodata value; the shared palette reserves 0 for nodata and numbers the classes
+        # 1..7, so shift by one. (Checked against the imagery: index 5 has the lowest near-infrared
+        # reflectance, index 6 is the brightest and occurs only on two high-mountain AOIs.)
+        return derive_pair_label(L[m1].astype(np.int16) + 1, L[m2].astype(np.int16) + 1, self.stable_threshold)
 
     # -- helpers --------------------------------------------------------
     def text_caption_for_pair(self, pair: PairKey) -> str:

@@ -4,7 +4,8 @@ fixture RGB palette. Imported by the DEN loader, the fixture generator, and
 the test mocks so they cannot drift.
 
 Index 0 = nodata. Indices 1..7 are the 7 LULC classes used by DEN
-(Toker et al. 2022).
+(Toker et al. 2022). The preprocessed ``labels/<AOI>.npy`` rasters store the same
+classes as 0..6 with no nodata value; ``DENNpyDataset`` adds one on reading.
 """
 from __future__ import annotations
 
