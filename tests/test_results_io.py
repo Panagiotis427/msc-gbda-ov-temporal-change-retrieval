@@ -127,10 +127,10 @@ def test_load_all_skips_rerank(tmp_path):
     assert len(recs) == 1 and recs[0]["encoder"] == "clip_vitl14"
 
 
-def test_append_macro_csv(tmp_path):
+def test_write_macro_csv(tmp_path):
     rep = _report()
     rec = rep.to_dict(color_mode="rgb", split="test")
-    csv_path = results_io.append_macro_csv([rec, rec], tmp_path / "macro.csv")
+    csv_path = results_io.write_macro_csv([rec, rec], tmp_path / "macro.csv")
     lines = csv_path.read_text(encoding="utf-8").strip().splitlines()
     assert lines[0].startswith("dataset,encoder,split,color_mode,approach,lora")
     assert len(lines) == 3  # header + 2 rows

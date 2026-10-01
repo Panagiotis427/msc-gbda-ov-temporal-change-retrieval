@@ -1,10 +1,10 @@
 """
-LEVIR-CC open-vocabulary change-retrieval benchmark (REPORT 7.11).
+LEVIR-CC open-vocabulary change-retrieval benchmark (report §8.5).
 
 Encodes (or loads cached) per-pair embeddings for the LEVIR-CC test split and
 scores the three caption-grounded queries (src/queries/levir_cc.py) under the
 naive and zero-shot approaches, for each frozen encoder. Writes one JSON per
-(encoder) to results/ so the 7.11 numbers are reproducible and traceable like
+(encoder) to results/ so the §8.5 numbers are reproducible and traceable like
 the DEN / QFabric results. The shared embed->score->JSON flow lives in
 ``scripts._caption_benchmark`` (also used by benchmark_second_cc).
 

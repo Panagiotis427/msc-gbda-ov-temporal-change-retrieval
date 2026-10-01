@@ -1,6 +1,7 @@
 """Unit tests for the SECOND-CC loader (captions + per-phase semantic maps), on a
 tiny synthetic fixture (no network / no 2.5 GB download)."""
 import json
+import warnings
 
 import numpy as np
 import pytest
@@ -114,3 +115,17 @@ def test_build_via_registry(tmp_path):
     _make_fixture(tmp_path)
     d = build_dataset("second_cc", root=str(tmp_path), split="test")
     assert d.name == "second_cc" and len(d.list_pairs()) == 2
+
+
+def test_misspelled_keyword_is_named_in_a_warning(tmp_path):
+    _make_fixture(tmp_path)
+    with pytest.warns(UserWarning, match=r"ignoring unsupported argument.*splitt"):
+        assert len(SecondCCDataset(root=tmp_path, split="test", splitt="test").list_pairs()) == 2
+
+
+def test_generic_registry_options_raise_no_warning(tmp_path):
+    _make_fixture(tmp_path)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        build_dataset("second_cc", root=str(tmp_path), pairing="bimonthly",
+                      split="test", color_mode="rgb")

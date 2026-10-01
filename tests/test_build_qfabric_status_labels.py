@@ -51,6 +51,16 @@ def test_image_n_join_and_nested_output(tmp_path):
                                 "d3": "construction_done"}
 
 
+def test_image_zero_is_skipped_not_read_as_the_last_frame(tmp_path):
+    frames = [_vid(150, 1, 0, 0), _vid(150, 2, 0, 0)]
+    recs = [
+        _rec(frames, 0, "Greenland"),        # "Image 0" is no frame (1-based); frames[-1] would be d2
+        _rec(frames, 1, "Land Cleared"),
+    ]
+    out = build_from(recs, tmp_path)
+    assert out["150_0_0"] == {"d1": "land_cleared"}
+
+
 def test_majority_vote_per_timepoint(tmp_path):
     frames = [_vid(200, 1, 0, 0), _vid(200, 2, 0, 0)]
     recs = [

@@ -181,6 +181,9 @@ class DENNpyDataset:
         return self._ndaily_cache[aoi]
 
     def _month_to_didx(self, aoi: str, month: int) -> int:
+        # Spreads the 24 label months evenly over the whole frame range (n frames, about 730), so the
+        # frame drifts from the start of its label month by about 1.3 days per month index (about a
+        # month at m=23).
         n = self._n_daily(aoi)
         return int(round(month * (n - 1) / (_N_MONTHS - 1)))
 

@@ -15,7 +15,7 @@ Run::
     python -m scripts.benchmark_qfabric --extract-from data/QFabric/_teochatlas/eval/TEOChatlas_images.tar.gz \\
         --crops-root data/QFabric/teochat_crops --extract-only
 
-    # benchmark (encodes on GPU; ~600 pairs x 3 encoders):
+    # benchmark (encodes on GPU; 2,476 pairs x 3 encoders at --max-per-class 120):
     python -m scripts.benchmark_qfabric --crops-root data/QFabric/teochat_crops \\
         --max-per-class 120 --results-dir results
 """
@@ -30,7 +30,7 @@ from src.datasets.registry import build_dataset
 from src.embeddings import load_or_compute
 from src.encoders import get_encoder
 from src.model import adapter_path, save_adapter
-from src.results_io import append_macro_csv, load_all, result_path, write_report
+from src.results_io import load_all, result_path, write_macro_csv, write_report
 from src.retrieval import ChangeRetriever
 from src.train import TrainConfig, train_adapter
 
@@ -163,7 +163,7 @@ def main() -> None:
 
     if written:
         all_recs = load_all(args.results_dir)
-        append_macro_csv(all_recs, f"{args.results_dir}/macro_summary.csv")
+        write_macro_csv(all_recs, f"{args.results_dir}/macro_summary.csv")
         print(f"\nWrote {len(written)} QFabric result(s); macro CSV now {len(all_recs)} rows.")
 
 

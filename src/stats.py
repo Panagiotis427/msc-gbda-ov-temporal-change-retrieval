@@ -2,9 +2,12 @@
 
 ``rand_ap`` is the average precision of a *uniformly random* ranking of ``N``
 items with ``R`` relevant — the honest chance baseline for AP (whose expectation
-is ~prevalence, not zero). ``scripts/patch_eval`` and ``scripts/significance_audit``
-each carried a byte-identical copy of this; this module is the single source of
-truth so the permutation baseline can never drift between them.
+is ~prevalence, not zero; only approximately so, and loosely for small ``N``, which
+is why the permutation tests compare against simulated random rankings rather than
+against the prevalence). ``scripts/patch_eval`` and
+``scripts/significance_audit`` each carried a byte-identical copy of this; this
+module is the single source of truth so the permutation baseline can never drift
+between them.
 
 NOTE: ``scripts/cv_eval`` deliberately keeps its own permutation routine — it
 draws via ``rng.permutation`` rather than ``rng.shuffle``, so swapping it for

@@ -5,9 +5,9 @@ Re-ranking quantification benchmark (report Appendix C) — artifact-backed.
 greedy location-deduplication; ``coherence`` = haversine proximity to the
 top-1 AOI). This script measures what that re-ordering does to retrieval
 quality: it ranks the pair corpus with a frozen encoder (default
-GeoRSCLIP + NRG, zero_shot, test split — the §7.5 setting), then recomputes
+GeoRSCLIP + NRG, zero_shot, test split — the Appendix C setting), then recomputes
 Recall@K and mAP for the baseline order and for each re-ranking strategy,
-writing one JSON artifact so the §7.5 table is reproducible.
+writing one JSON artifact so the Appendix C table is reproducible.
 
 Re-ranking is applied to the *full* ranking (``top_k = n_pairs``) so AP is
 defined over a complete permutation; Recall@K reads the reranked top-K. Uses

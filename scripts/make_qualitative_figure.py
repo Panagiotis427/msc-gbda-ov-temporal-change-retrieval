@@ -12,7 +12,8 @@ Nothing is cherry-picked: the script shows whatever pair the engine ranks first
 and labels it relevant / not-relevant from the query's own label predicate, so a
 weak result reads as weak. The change heatmap is included for transparency, not
 as a strong localisation claim — it is a *weak* localiser (report §8.5,
-pointing-game lift within +/-0.04-0.10 of a random-patch floor).
+pointing-game lift over the random-patch floor of -0.137 to +0.104 across encoders
+and classes).
 
 Deterministic given the cached embeddings, so it regenerates identically::
 

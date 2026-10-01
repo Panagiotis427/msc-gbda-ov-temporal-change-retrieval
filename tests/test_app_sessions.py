@@ -112,7 +112,8 @@ def test_each_request_exports_into_its_own_directory():
     a = materialize_image(Image.new("RGB", (4, 4), "red"), "heatmap_loc_t1_to_t2", one)
     b = materialize_image(Image.new("RGB", (4, 4), "blue"), "heatmap_loc_t1_to_t2", two)
     assert Path(a).name == Path(b).name == "heatmap_loc_t1_to_t2.png"
-    assert Image.open(a).getpixel((0, 0)) != Image.open(b).getpixel((0, 0))
+    with Image.open(a) as img_a, Image.open(b) as img_b:
+        assert img_a.getpixel((0, 0)) != img_b.getpixel((0, 0))
     c1 = results_to_csv([[1, "loc"]], "levir_mci", one)
     c2 = results_to_csv([[2, "loc"]], "levir_mci", two)
     assert c1 != c2 and Path(c1).read_text() != Path(c2).read_text()
@@ -145,6 +146,6 @@ def test_failed_reload_keeps_the_previous_corpus():
     engine = SemanticChangeSearch.from_components(
         ds, enc, store, RunConfig(dataset="dynamic_earthnet", root=str(FIXTURE)))
     status, _ = engine.reload("no_such_dataset", "clip_vitl14", "zero_shot")
-    assert status.startswith("Error")
+    assert status.startswith("Error") and "no_such_dataset" not in status   # detail stays in the log
     assert engine.cfg.dataset == "dynamic_earthnet"
     assert engine.store is store and engine.dataset is ds

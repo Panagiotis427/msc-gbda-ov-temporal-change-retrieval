@@ -1,4 +1,4 @@
-"""Unit tests for the query-type-gated global/patch hybrid (REPORT B.13).
+"""Unit tests for the query-type-gated global/patch hybrid (report §8.3).
 
 Pure-numpy, CPU-only — no encoder weights, no dataset, no cache. Verifies the
 routing in ``scripts.patch_eval._scores`` (diffuse -> global Δ, localised ->

@@ -83,3 +83,28 @@ def test_oversized_top_k_is_clamped(ui):
     _, _, cfg, fns = ui
     out = _search(fns, replace(cfg), top_k=10_000)
     assert len(out[3]) <= 10
+
+
+def _handle(fns, cfg, text, approach="zero_shot"):
+    return fns["handle"](text, approach, 3, False, "All", False, "diversity", cfg)
+
+
+def test_blank_query_gets_a_polite_message_without_searching(ui):
+    _, _, cfg, fns = ui
+    for blank in ("", "   \n ", None):
+        out = _handle(fns, cfg, blank)
+        assert out[3] == [] and out[2].startswith("*Type a description")
+
+
+def test_overlong_query_is_refused_with_its_length(ui):
+    _, _, cfg, fns = ui
+    out = _handle(fns, cfg, "a" * 301)
+    assert out[3] == [] and "301 characters" in out[2] and "300" in out[2]
+    assert _handle(fns, cfg, "a" * 300)[3]            # at the limit it still runs
+
+
+def test_search_error_shows_no_exception_detail(ui):
+    _, _, cfg, fns = ui
+    out = _handle(fns, cfg, QUERY, approach="peft")   # the fixture has no adapter
+    assert out[3] == [] and out[2].startswith("**Error:** RuntimeError.")
+    assert "no adapter found" not in out[2]

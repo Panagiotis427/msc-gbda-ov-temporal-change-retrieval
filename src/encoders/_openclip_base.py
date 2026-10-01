@@ -87,8 +87,12 @@ def _load_state_dict_flexible(
     sd = {(k[7:] if k.startswith("module.") else k): v for k, v in sd.items()}
     missing, unexpected = model.load_state_dict(sd, strict=False)
     # CLIP logit_scale / position-id buffers are commonly absent — only worry
-    # if entire towers failed to load.
-    critical = [m for m in missing if m.startswith(("visual.", "transformer."))]
+    # if entire towers failed to load: the whole vision tower, and the text tower's
+    # transformer plus its embeddings, final norm and projection (the key names of
+    # open_clip's CLIP, which both encoders are built on).
+    critical = [m for m in missing if m.startswith(
+        ("visual.", "transformer.", "token_embedding", "positional_embedding",
+         "ln_final", "text_projection"))]
     if critical:
         raise RuntimeError(
             f"Checkpoint missing critical weights (e.g. {critical[:3]} ...). "

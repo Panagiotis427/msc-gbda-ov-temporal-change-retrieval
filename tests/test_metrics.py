@@ -1,7 +1,7 @@
 """
 Value-level tests for the core retrieval metric `_average_precision`.
 
-mAP is the headline metric of every §7 table, but the AP formula was previously
+mAP is the headline metric of every report §8 table, but the AP formula was previously
 exercised only through `run_benchmark` on a perfect-ranking fixture (so the
 assertions were trivial). These pin the AP value on imperfect rankings.
 

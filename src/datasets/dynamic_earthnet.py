@@ -156,7 +156,14 @@ def derive_pair_label(
 
 
 def _load_tif_rgb(path: Path) -> Image.Image:
-    """Load a GeoTIFF as an RGB PIL image (drops NIR band if 4-band)."""
+    """Load a GeoTIFF as an RGB PIL image (drops NIR band if 4-band).
+
+    The first three bands are taken as (R, G, B) and non-uint8 data is stretched by
+    each image's own min/max. The real Planet-Fusion band order is B, G, R, NIR (see
+    :mod:`dynamic_earthnet_planet`), so real tiles would come out as BGR with a
+    per-image stretch; only the synthetic test fixture (uint8, palette colours in
+    bands 0-2) goes through this function.
+    """
     try:
         import rasterio  # type: ignore
         with rasterio.open(path) as src:

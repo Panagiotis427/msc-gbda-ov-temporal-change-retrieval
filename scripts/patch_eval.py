@@ -1,7 +1,7 @@
 """
 S3 — patch-level (localised) change retrieval, vs the global-embedding baseline.
 
-REPORT Appendix B.9 showed the residual DEN weakness is a *method* ceiling: global
+The report (§8.1) showed the residual DEN weakness is a *method* ceiling: global
 CLIP-embedding differencing averages over the whole 1024² tile, so localised change
 (a new building, a cleared patch) barely moves the embedding. This script tests the
 fix: score each pair from **per-patch** embeddings instead of one global vector.
@@ -16,7 +16,7 @@ spatially aligned T1/T2 grids):
 
 Evaluated on the full 75-AOI corpus (bootstrap CI + permutation p) and under 5-fold
 AOI cross-validation, with **fraction-based relevance** (the curated labels from
-B.9), so results are directly comparable to ``cv_eval.py --relevance fraction``.
+report §8.1), so results are directly comparable to ``cv_eval.py --relevance fraction``.
 
 Patch embeddings are encoded once and cached (encoding 1650 images is the only GPU
 cost; re-runs over scoring variants are instant).
@@ -140,10 +140,10 @@ def _scores(P1, P2, t, approach, G1=None, G2=None, tau: float = 0.03, geom=None)
     patch top-3 Δ by z-scoring each over the candidate set and summing
     (rank-comparable; diffuse change favours global, localised favours patch).
 
-    For ``gated`` (REPORT B.13), route the whole query to one scorer by its
+    For ``gated`` (report §8.3), route the whole query to one scorer by its
     a-priori geometry tag ``geom`` (``src.queries.den.DEN_QUERY_GEOMETRY``):
     ``"diffuse"`` -> global Δ-cosine, anything else -> patch top-3. Unlike the
-    flat z-sum ``hybrid`` (which dilutes the patch signal, B.11), this picks the
+    flat z-sum ``hybrid`` (which dilutes the patch signal, report §8.3), this picks the
     scorer per query rather than blending — no peeking, the tag is fixed up front."""
     if approach == "hybrid":
         patch = _patch_score(P1, P2, t, "patch_top3")
@@ -172,7 +172,7 @@ def main() -> None:
                     choices=["patch_zeroshot", "patch_naive", "patch_top3", "hybrid",
                              "patch_softattn", "patch_spatial", "gated"],
                     help="'gated' routes each query to global Δ (diffuse) or "
-                         "patch_top3 (localised) by its a-priori geometry tag (B.13)")
+                         "patch_top3 (localised) by its a-priori geometry tag (report §8.3)")
     ap.add_argument("--tau", type=float, default=0.03,
                     help="softmax temperature for --approach patch_softattn")
     ap.add_argument("--prompt-ensemble", action="store_true",

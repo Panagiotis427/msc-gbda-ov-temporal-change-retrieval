@@ -33,11 +33,11 @@ Notes
 - ``rsync`` must be installed; this script shells out to it and never writes to
   the source mirror.
 - The labels archive (``labels.zip``, all 55 cubes) is small and always fetched,
-  so :mod:`scripts.analyze_label_coverage` / the loader can see every zone's
-  class coverage even before its imagery is downloaded.
+  so the loader can see every zone's class coverage even before its imagery is
+  downloaded.
 - To pick which zones add the rarest classes (agriculture / wetlands / snow),
-  run the coverage analysis first; snow lives only in 19S & 32N, wetlands only
-  in 36N / 21S / 33N.
+  check the labels' class coverage per zone first; snow lives only in 19S & 32N,
+  wetlands only in 36N / 21S / 33N.
 """
 import argparse
 import os

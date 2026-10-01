@@ -116,8 +116,9 @@ def _macro_row(rec: Dict) -> Dict:
     }
 
 
-def append_macro_csv(records: List[Dict], csv_path: str | Path) -> Path:
-    """Write a flat macro-metrics CSV (one row per result record)."""
+def write_macro_csv(records: List[Dict], csv_path: str | Path) -> Path:
+    """Write a flat macro-metrics CSV (one row per result record), replacing any
+    existing file at *csv_path*."""
     csv_path = Path(csv_path)
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     with open(csv_path, "w", newline="", encoding="utf-8") as f:

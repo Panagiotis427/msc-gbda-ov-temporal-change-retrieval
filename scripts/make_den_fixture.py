@@ -4,7 +4,7 @@ Generate a tiny synthetic Dynamic EarthNet tree for fast end-to-end tests.
 Mirrors the real on-disk layout expected by ``src.datasets.dynamic_earthnet``:
 
     <dest>/
-    ├── planet/<aoi>/<YYYY-MM-01>.tif   (4-band RGBNIR uint16)
+    ├── planet/<aoi>/<YYYY-MM-01>.tif   (4-band RGBNIR uint8)
     ├── labels/<aoi>/<YYYY-MM-01>.tif   (1-band uint8 class indices 0..7)
     ├── labels_index.parquet            (built via download_den.build_label_index)
     └── _done.marker
@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import shutil
+import zlib
 from pathlib import Path
 
 import numpy as np
@@ -76,7 +77,7 @@ def _label_array(layout, rng) -> np.ndarray:
 
 
 def _planet_from_label(label: np.ndarray, rng) -> np.ndarray:
-    """Colorize a label map into a 4-band (RGB+NIR) uint16 array [C,H,W]."""
+    """Colorize a label map into a 4-band (RGB+NIR) uint8 array [C,H,W]."""
     h, w = label.shape
     rgb = np.zeros((h, w, 3), dtype=np.float32)
     for cls, color in _PALETTE.items():
@@ -114,7 +115,9 @@ def build_fixture(dest: Path, force: bool = False) -> Path:
 
     for aoi, months in _LAYOUTS.items():
         for date_key, layout in sorted(months.items()):
-            seed = abs(hash((aoi, date_key))) % (2**32)
+            # A stable digest, not hash(): Python salts str hashes per process, which
+            # made the "deterministic" fixture differ between runs.
+            seed = zlib.crc32(f"{aoi}|{date_key}".encode())
             rng = np.random.default_rng(seed)
             label = _label_array(layout, rng)
             planet = _planet_from_label(label, rng)

@@ -358,7 +358,7 @@ class _NoPatchEncoder:
 
 class TestGenerateChangeHeatmap:
     """Covers generate_change_heatmap — the production change localiser (used by
-    src/app.py and thesis figures) that had no direct test."""
+    src/app.py and the figures) that had no direct test."""
 
     @staticmethod
     def _imgs():

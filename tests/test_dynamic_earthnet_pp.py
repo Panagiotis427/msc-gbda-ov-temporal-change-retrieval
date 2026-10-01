@@ -2,7 +2,7 @@
 Value-level tests for the DEN preprocessed colour-mode composition
 (`_compose_nrg`, `_compose_ndvi`).
 
-The §7 NRG/NDVI mAP numbers depend on this pixel math, which was previously
+The report §8.3 NRG/NDVI mAP numbers depend on this pixel math, which was previously
 untested. These exercise the band ordering and the NDVI arithmetic directly on
 tiny *lossless* (PNG) inputs — no dataset download, no GPU, pure numpy/PIL —
 so they belong in the fast suite.

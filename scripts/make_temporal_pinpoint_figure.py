@@ -32,7 +32,8 @@ def main() -> None:
     ap.add_argument("--out-dir", default="report/figures")
     args = ap.parse_args()
 
-    data = json.load(open(args.json))
+    with open(args.json, encoding="utf-8") as f:
+        data = json.load(f)
     rows = sorted(data["per_query"], key=lambda r: r["temporal_mAP"], reverse=True)
 
     fig, (axA, axB) = plt.subplots(1, 2, figsize=(13, 5))

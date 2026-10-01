@@ -31,6 +31,7 @@ RERANK_STRATEGIES = ("diversity", "coherence")
 
 
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    # Same function as src.geo_filter._haversine_km; keep the two in step.
     R = 6371.0
     dlat = radians(lat2 - lat1)
     dlon = radians(lon2 - lon1)
@@ -158,7 +159,7 @@ class Reranker:
             return np.argsort(-scores, kind="stable")[:top_k]
 
         a_lat, a_lon = anchor
-        max_dist_km = 5_000.0  # normalise proximity over half the globe
+        max_dist_km = 5_000.0  # proximity falls linearly to 0 at 5,000 km (about a continent's width)
 
         prox = np.zeros(len(pairs), dtype=np.float32)
         for i, p in enumerate(pairs):

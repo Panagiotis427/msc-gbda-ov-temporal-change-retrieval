@@ -1,5 +1,5 @@
 """
-Download and prepare the 5-AOI Dynamic EarthNet preprocessed subset.
+Download and prepare the preprocessed Dynamic EarthNet subset (75 AOIs).
 
 Usage:
     python -m scripts.download_den [--dest data/DynamicEarthNet]
@@ -22,7 +22,7 @@ import zipfile
 from pathlib import Path
 from typing import Optional
 
-# gdown ID for the 5-AOI preprocessed DEN subset (~7 GB extracted)
+# gdown ID for the preprocessed DEN subset (75 AOIs; ~7 GB archive, ~9 GB extracted)
 _GDRIVE_ID = "1cMP57SPQWYKMy8X60iK217C28RFBkd2z"
 _ARCHIVE_NAME = "den_5aoi.tar.gz"
 # SHA-256 of that archive. Google Drive publishes none, so it is pinned from a
@@ -154,7 +154,7 @@ def build_label_index(root: Path, pairing_strategy: str = "bimonthly") -> Path:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Download + prepare DEN 5-AOI subset")
+    parser = argparse.ArgumentParser(description="Download + prepare the preprocessed DEN subset (75 AOIs)")
     parser.add_argument("--dest", type=str, default="data/DynamicEarthNet",
                         help="Root directory for DEN data")
     parser.add_argument("--gdrive-id", type=str, default=_GDRIVE_ID,

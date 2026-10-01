@@ -25,7 +25,7 @@ class CLIPViTL14Encoder:
     """`ImageTextEncoder` for OpenAI CLIP ViT-L/14 (768-d shared space)."""
 
     name = "clip_vitl14"
-    embed_dim = 768
+    embed_dim = 768     # ViT-L/14's width; __init__ sets the instance value from the loaded model
     image_input_size = 224
 
     def __init__(
@@ -46,6 +46,9 @@ class CLIPViTL14Encoder:
 
         print(f"Loading CLIP vision tower: {model_name}")
         self._clip_model: CLIPModel = CLIPModel.from_pretrained(model_name, cache_dir=self.cache_dir).to(self.device)
+        # The class attribute is the ViT-L/14 value; follow the loaded model when
+        # `model_name` points at another CLIP (the name and cache keys stay "clip_vitl14").
+        self.embed_dim = int(self._clip_model.visual_projection.out_features)
         self._clip_model.eval()
         for p in self._clip_model.parameters():
             p.requires_grad = False

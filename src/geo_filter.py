@@ -57,6 +57,7 @@ def region_from_centroid(lat: float, lon: float) -> str:
 
 
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    # Same function as src.rerank._haversine_km; keep the two in step.
     R = 6371.0
     dlat = radians(lat2 - lat1)
     dlon = radians(lon2 - lon1)

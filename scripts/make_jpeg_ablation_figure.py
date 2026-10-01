@@ -30,7 +30,8 @@ def main() -> None:
     ap.add_argument("--out-dir", default="report/figures")
     args = ap.parse_args()
 
-    data = json.load(open(args.json))
+    with open(args.json, encoding="utf-8") as f:
+        data = json.load(f)
     rows = data["rows"]
     native = next(r for r in rows if r["source"] == "native")
     jpeg = sorted((r for r in rows if r["quality"] is not None),

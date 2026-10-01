@@ -10,7 +10,7 @@ scored against ground truth.
 For a pair with per-patch embeddings ``P1, P2`` (``[n_patch, D]``, L2-normed) and
 a query vector ``t``, the change heatmap is the per-patch Δ-similarity
 ``delta_p = cos(t, P2_p) - cos(t, P1_p)`` (the same signal as the S3 patch scorer,
-REPORT Appendix B.10, and ``src/heatmap.generate_change_heatmap``). The ground
+report §5 and §8.5, and ``src/heatmap.generate_change_heatmap``). The ground
 truth is the LEVIR-MCI mask for the query's class (building or road),
 area-downsampled to the encoder's patch grid. Two honest metrics, each scored
 only on pairs that actually contain that class of change and have at least one

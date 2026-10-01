@@ -10,9 +10,10 @@ timepoint to its real QFabric development status::
 These are the authentic per-timepoint statuses (the RTQA questions' answers). Each
 ``region_based_temporal_question_answering`` record asks "what is the development
 status of this region in Image N?"; the video frames are in temporal order, so
-**Image N -> the N-th day (dN)** of that crop, and the gpt answer is the status at
-dN. A crop's before/after pair (di, dj) therefore encodes a *transition*
-(status@di -> status@dj) — consumed by ``src.datasets.qfabric_status``.
+**Image N -> the N-th day (dN)** of that crop, and the answer under the dataset's
+"gpt" role key is the status at dN. A crop's before/after pair (di, dj) therefore
+encodes a *transition* (status@di -> status@dj) — consumed by
+``src.datasets.qfabric_status``.
 
 Sibling of ``scripts/build_qfabric_labels.py`` (which builds the RQA2 *change-type*
 index); this one builds the RQA5 *status-transition* index. Run::
@@ -105,7 +106,9 @@ def build(rqa5_path: str, out_path: str) -> dict:
         vids = r.get("video") or []
         n = _image_index(_human_question(r.get("conversations", [])))
         status = _match_status(_gpt_answer(r.get("conversations", [])))
-        if not vids or n is None or status is None or n > len(vids):
+        # Image N is 1-based: "Image 0" names no frame, and vids[-1] would silently
+        # be the LAST one, so it is skipped like any other unusable record.
+        if not vids or n is None or status is None or not 1 <= n <= len(vids):
             skipped += 1
             continue
         parsed = parse_crop(vids[n - 1])

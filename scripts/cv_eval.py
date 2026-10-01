@@ -1,16 +1,16 @@
 """
 Cross-validated DEN retrieval evaluation with confidence intervals.
 
-Motivation (REPORT Appendix B): the committed DEN **test** split (110 pairs)
-makes only **3** wetland queries evaluable, so the headline 0.426 rests on n=3
+Motivation (report §8.1): the committed DEN **test** split (110 pairs)
+makes only **3** queries evaluable, so the headline 0.426 rests on n=3
 and no generalisation across change-types can be claimed. This script removes
 that single-split bottleneck two ways, **without re-encoding any imagery** — it
 merges the cached train+val+test pair embeddings (= all 75 AOIs, 825 pairs):
 
 1. **Full-corpus estimate.** Score every query over all 825 pairs → per-query AP
    with a **bootstrap 95% CI** (resampling pairs) and a **permutation p-value**
-   vs random ranking. Pooling all AOIs makes 6 queries evaluable (vs 3 on test):
-   the 3 wetland transitions + water-body + bare-soil + forest-loss.
+   vs random ranking. Pooling all AOIs makes 6 of the 10 queries evaluable under the
+   default dominant-flip rule (vs 3 on test), and 8 under ``--relevance fraction``.
 2. **K-fold AOI cross-validation.** Partition the 75 AOIs into K disjoint folds.
    - zero_shot: evaluate each fold independently → per-query AP across folds →
      mean ± CI (variance over AOI samples, not over a single 3-query split).
@@ -18,10 +18,11 @@ merges the cached train+val+test pair embeddings (= all 75 AOIs, 825 pairs):
      pairs and evaluate on the held-out fold — a leakage-free cross-validated
      PEFT estimate (contrast with the train-fit 0.42/0.998 of report §8.2).
 
-Note: with the corrected class mapping (see the README's notes on the report), the
-building / urban change-types have **zero positives anywhere in this 75-AOI subset**
-(deforestation and snow melt have positives) — CV cannot conjure them; that needs more
-diverse data (report §11).
+Note: with the corrected class mapping (see the README's notes on the report), four of
+the ten queries have **zero positives anywhere in this 75-AOI subset** under the
+dominant-flip rule (new buildings, urban expansion and the two agriculture/wetland
+transitions); with ``--relevance fraction`` only the building and urban queries stay
+empty. CV cannot conjure them; that needs more diverse data (report §11).
 
 Run::
 

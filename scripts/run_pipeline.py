@@ -41,7 +41,7 @@ from src.embeddings import cache_tag_for, color_tag, load_or_compute
 from src.encoders import get_encoder
 from src.retrieval import ChangeRetriever
 from src.benchmark import run_benchmark
-from src.results_io import append_macro_csv, load_all, result_path, write_report
+from src.results_io import load_all, result_path, write_macro_csv, write_report
 from src.train import TrainConfig, train_adapter
 from src.model import adapter_path, save_adapter
 from src.lora_train import LoRAConfig, train_lora, save_lora, merge_lora_into_encoder
@@ -285,7 +285,7 @@ def main() -> None:
         # Rebuild macro CSV from all results on disk so a subset run does not
         # clobber the full aggregate.
         all_recs = load_all(args.results_dir)
-        csv_path = append_macro_csv(all_recs, f"{args.results_dir}/macro_summary.csv")
+        csv_path = write_macro_csv(all_recs, f"{args.results_dir}/macro_summary.csv")
         print(f"\nWrote {len(written)} JSON result(s) this run -> {args.results_dir}/  "
               f"+ macro CSV ({len(all_recs)} rows) -> {csv_path}")
 

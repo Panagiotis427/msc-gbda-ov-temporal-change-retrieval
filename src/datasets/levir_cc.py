@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import re
+import warnings
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -51,6 +52,11 @@ class LevirCCDataset:
     temporal_axis_type = "pair"
 
     def __init__(self, root, split: Optional[str] = None, **_ignore):
+        if _ignore:
+            # Extra keywords stay accepted (one option set can feed several loaders),
+            # but a misspelled argument must not disappear without a trace.
+            warnings.warn(f"{type(self).__name__}: ignoring unsupported argument(s) "
+                          f"{sorted(_ignore)}", stacklevel=2)
         self.root = Path(root)
         cap = self.root / "LevirCCcaptions.json"
         if not cap.exists():
@@ -78,7 +84,6 @@ class LevirCCDataset:
         self._locations = sorted(self._records)
         self._split = split
         if split and not self._records:
-            import warnings
             warnings.warn(f"{type(self).__name__}: no pairs found for split={split!r} "
                           f"under {self.root} — check the split name / layout.")
 

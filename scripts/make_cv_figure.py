@@ -26,7 +26,8 @@ OUT = Path("report/figures/cv_progression.png")
 
 
 def _load(name):
-    return json.load(open(R / name))
+    with open(R / name, encoding="utf-8") as f:
+        return json.load(f)
 
 
 def main() -> None:

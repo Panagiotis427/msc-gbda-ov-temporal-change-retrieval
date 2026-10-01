@@ -58,6 +58,25 @@ def clamp_top_k(value) -> int:
     return max(1, min(int(value), _MAX_RESULTS))
 
 
+# The text towers read at most 77 tokens (about 300 characters); a longer query would be
+# cut off without the visitor knowing, so it is refused instead.
+_MAX_QUERY_CHARS = 300
+
+
+def query_problem(text) -> Optional[str]:
+    """Why the app will not run this query, as a short message for the visitor, or
+    None when it is fine. A blank query has nothing to search for, and an over-long
+    one would be truncated by the text encoder without the visitor knowing. The
+    browser box does not bound the text, and the API endpoint accepts anything."""
+    text = (text if isinstance(text, str) else "").strip()
+    if not text:
+        return "Type a description of the change you are looking for, for example 'a new road or street built'."
+    if len(text) > _MAX_QUERY_CHARS:
+        return (f"That query is {len(text)} characters long; please keep it to "
+                f"{_MAX_QUERY_CHARS} characters or fewer.")
+    return None
+
+
 def _safe_name(raw: str) -> str:
     return "".join(c if (c.isalnum() or c in "._-") else "_" for c in str(raw)) or "image"
 
@@ -612,8 +631,9 @@ class SemanticChangeSearch:
             self.__dict__.update(fresh.__dict__)
             return _loaded_status(self.cfg, len(self.store)), self.stats_markdown()
         except Exception as exc:
-            traceback.print_exc()
-            return f"Error: {exc}", "<div class='stats-card stats-err'>Error</div>"
+            traceback.print_exc()          # the detail stays in the server log, not in the UI
+            return (f"Error: {type(exc).__name__} — the corpus could not be loaded with these settings.",
+                    "<div class='stats-card stats-err'>Error</div>")
 
     def build_interface(self, pool: "Optional[EnginePool]" = None):
         import gradio as gr
@@ -674,8 +694,9 @@ class SemanticChangeSearch:
                     "advantage over supervised models; the trade-off is lower absolute accuracy.\n\n"
                     "**Honest expectations.** This is a research demo, not a product. With frozen "
                     "encoders, open-vocabulary change retrieval is **weak in absolute terms** — the "
-                    "best honestly-audited configuration reaches only **≈ 0.20 mAP** (5-fold "
-                    "cross-validated), and recovery scales with how *visually salient* the change "
+                    "best honestly-audited configuration reaches only **≈ 0.18 mAP** (5-fold "
+                    "cross-validated, with the corrected Dynamic EarthNet labels; a random ranking "
+                    "scores about 0.12), and recovery scales with how *visually salient* the change "
                     "is. Use the curated example queries for results that actually work.\n\n"
                     "**Approaches.** *Naive* = cos(text, After) — an image-retrieval baseline. "
                     "*Zero-shot* = cos(text, After) − cos(text, Before) — the temporal Δ, no "
@@ -700,9 +721,10 @@ class SemanticChangeSearch:
                     "copy has only the bundled sample), sorted by best reported result:** LEVIR-CC "
                     "(building/road, the local default), SECOND-CC (six land-cover classes), "
                     "QFabric change-type (construction), Dynamic EarthNet (the report's primary "
-                    "analysed corpus; subtle spectral change, low absolute results), and QFabric "
-                    "construction-status (a distinct task with weak retrieval, included for "
-                    "completeness). Switching reloads embeddings, so press **Apply Settings**.\n\n"
+                    "analysed corpus; subtle spectral change, weak but above chance), and QFabric "
+                    "construction-status (a distinct task whose retrieval sits near its chance "
+                    "floor, included for completeness). Switching reloads embeddings, so press "
+                    "**Apply Settings**.\n\n"
                     "**Note on QFabric here:** this is the reduced *2-date* TEOChatlas crop subset "
                     "(change-type / status retrieval only). The full *5-date* QFabric with polygon "
                     "change-masks (for temporal pinpointing + pixel localization) is a future-work "
@@ -987,15 +1009,25 @@ class SemanticChangeSearch:
                 after_heat = (a, h) if a and h else None
                 return before_after, after_heat, b, a, h
 
+            def _no_results(message):
+                """The results view with nothing to show: *message* in the summary,
+                and the tiles, View buttons and downloads hidden."""
+                return (None, None, message, [],
+                        gr.update(visible=False), gr.update(visible=False),
+                        gr.update(visible=False), gr.update(visible=False), [],
+                        *[gr.update(value=None, visible=False) for _ in range(MAX_RESULTS)],
+                        *[gr.update(visible=False) for _ in range(MAX_RESULTS)])
+
             def handle(text, approach, top_k,
                        geo_enabled, geo_region, rerank_enabled, rerank_strategy, cfg,
                        progress=gr.Progress()):
+                problem = query_problem(text)       # blank or over-long: say so, don't search
+                if problem:
+                    return _no_results(f"*{problem}*")
                 try:
                     progress(0.05, desc="Scoring corpus against your query… "
                              "(first query on a dataset/approach encodes it — a few seconds)")
-                    text = (text or "").strip()[:300]         # bounded, like the other inputs
-                    if not text:
-                        raise ValueError("empty query")
+                    text = text.strip()
                     active_geo = geo_region if geo_enabled else "All"
                     active_rerank = rerank_strategy if rerank_enabled else None
                     top_k = clamp_top_k(top_k)
@@ -1006,23 +1038,15 @@ class SemanticChangeSearch:
                         rerank_strategy=active_rerank,
                     )
                 except Exception as exc:
-                    traceback.print_exc()
-                    return (None, None, (
+                    traceback.print_exc()          # the detail stays in the server log, not in the UI
+                    return _no_results(
                         f"**Error:** {type(exc).__name__}.\n\n*If you just changed Dataset / Encoder / Color mode, "
                         "press **Apply Settings** first. For PEFT, an adapter must exist for the "
-                        "selected encoder + colour mode.*"), [],
-                        gr.update(visible=False), gr.update(visible=False),
-                        gr.update(visible=False), gr.update(visible=False), [],
-                        *[gr.update(value=None, visible=False) for _ in range(MAX_RESULTS)],
-                        *[gr.update(visible=False) for _ in range(MAX_RESULTS)])
+                        "selected encoder + colour mode.*")
                 if not evs:
-                    return (None, None, (
+                    return _no_results(
                         "*No results for this query. Try a curated example above, or a different "
-                        "**Approach** (patch / zero-shot).*"), [],
-                        gr.update(visible=False), gr.update(visible=False),
-                        gr.update(visible=False), gr.update(visible=False), [],
-                        *[gr.update(value=None, visible=False) for _ in range(MAX_RESULTS)],
-                        *[gr.update(visible=False) for _ in range(MAX_RESULTS)])
+                        "**Approach** (patch / zero-shot).*")
                 progress(0.9, desc="Rendering results…")
                 rows = [[e.rank, e.location, e.t1_key, e.t2_key,
                          round(e.score, 4), e.confidence, e.caption,

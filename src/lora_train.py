@@ -246,6 +246,9 @@ def train_lora(
 
             f1 = spec.forward(visual_lora, px_t1)
             f2 = spec.forward(visual_lora, px_t2)
+            # Design choice: training matches the text to the *direction* of the change (cosine
+            # with the normalised difference), whereas retrieval ranks pairs by the un-normalised
+            # t·(f2 - f1), which also rewards a larger change magnitude.
             delta = F.normalize(f2 - f1, dim=-1)    # [B, D]
 
             pos_mask = (cid[:, None] == cid[None, :])

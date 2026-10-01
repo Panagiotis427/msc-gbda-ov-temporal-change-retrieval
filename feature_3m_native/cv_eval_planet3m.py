@@ -1,8 +1,8 @@
 """
 Cross-validated retrieval evaluation for the NATIVE 3 m Planet-Fusion DEN source.
 
-Self-contained companion to ``scripts/cv_eval.py`` (Panagiotis's DEN-JPEG
-evaluator), kept SEPARATE so the upstream script stays byte-for-byte untouched.
+Self-contained companion to ``scripts/cv_eval.py`` (the JPEG evaluator), kept
+SEPARATE so the upstream script stays byte-for-byte untouched.
 It reuses the repository library (``src/*``) read-only and the registry-resolved
 ``dynamic_earthnet_planet`` loader (native PF-SR int16 rasters read straight from
 the official ``planet.<UTM>.zip`` archives — see

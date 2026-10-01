@@ -101,3 +101,32 @@ def test_load_or_compute_patches_recomputes_on_stale_pairset(tmp_path):
     got = load_or_compute_patches(ds, enc, ds.list_pairs(), cache_dir=tmp_path, cache_tag="test")
     assert len(got) == 4
     assert [tuple(p) for p in got.pairs] == [tuple(p) for p in ds.list_pairs()]
+
+
+def test_interrupted_save_keeps_the_previous_cache(tmp_path, monkeypatch):
+    ds, enc = _FakeDataset(4), _PatchEncoder()
+    store = compute_patch_embeddings(ds, enc, ds.list_pairs())
+    path = patch_cache_path(tmp_path, ds.name, enc.name, tag="test")
+    store.save(path)
+    before = path.read_bytes()
+
+    def interrupted(fh, **arrays):
+        fh.write(b"partial")
+        raise OSError("disk full")
+
+    monkeypatch.setattr(np, "savez", interrupted)
+    with pytest.raises(OSError):
+        store.save(path)
+    monkeypatch.undo()
+
+    assert path.read_bytes() == before                    # the earlier cache is intact
+    assert [p.name for p in tmp_path.iterdir()] == [path.name]   # no temp file left behind
+    assert len(PatchEmbeddingStore.load(path)) == 4
+
+
+def test_save_names_the_file_as_np_savez_does(tmp_path):
+    ds, enc = _FakeDataset(2), _PatchEncoder()
+    store = compute_patch_embeddings(ds, enc, ds.list_pairs())
+    store.save(tmp_path / "plain_name")                   # np.savez appends ".npz"
+    assert [p.name for p in tmp_path.iterdir()] == ["plain_name.npz"]
+    assert len(PatchEmbeddingStore.load(tmp_path / "plain_name.npz")) == 2

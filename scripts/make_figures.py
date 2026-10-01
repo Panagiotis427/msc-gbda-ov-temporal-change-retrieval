@@ -11,7 +11,8 @@ Figures
 - mAP grouped bars (x=encoder, hue=approach)            <- quantitative half of
                                                             the graded comparison
 - colour-mode ablation heatmap (encoder x {rgb,nrg,ndvi})
-- seasonal-drift@K curves (permanent queries, lower=better)
+- seasonal-drift@K curves (permanent queries, lower=better); ``fig_seasonal_drift``
+  is callable but not run by the CLI
 - cross-split mAP (x=split, hue=approach)               <- the PEFT-overfit story
 
 Run::
@@ -224,7 +225,7 @@ def main() -> None:
                     help="the figures compare encoders and approaches within ONE dataset; the results folder "
                          "holds several (records of other datasets would overwrite the same keys)")
     ap.add_argument("--only", nargs="*", default=None,
-                    help="Subset of: recall map color drift cross (default: all)")
+                    help="Subset of: recall map color cross confusion (default: all)")
     args = ap.parse_args()
 
     records = [r for r in load_all(args.results_dir) if r.get("dataset") == args.dataset]

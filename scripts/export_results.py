@@ -40,7 +40,7 @@ from src.embeddings import PairEmbeddingStore, cache_path, cache_tag_for
 from src.encoders import get_encoder
 from src.error_analysis import build_confusion
 from src.model import adapter_path, load_adapter
-from src.results_io import append_macro_csv, load_all, result_path, write_report
+from src.results_io import load_all, result_path, write_macro_csv, write_report
 from src.retrieval import ChangeRetriever
 
 
@@ -166,7 +166,7 @@ def main() -> None:
         # Rebuild the macro CSV from ALL results on disk (not just this run's
         # `written`) so a partial export never clobbers the full aggregate.
         all_recs = load_all(args.results_dir)
-        csv_path = append_macro_csv(all_recs, f"{args.results_dir}/macro_summary.csv")
+        csv_path = write_macro_csv(all_recs, f"{args.results_dir}/macro_summary.csv")
         print(f"\nWrote {len(written)} JSON result(s) this run -> {args.results_dir}/")
         print(f"Macro summary ({len(all_recs)} total rows) -> {csv_path}")
         # Compact headline table to stdout.

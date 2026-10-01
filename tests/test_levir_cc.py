@@ -1,12 +1,14 @@
 """Unit tests for the LEVIR-CC loader + query set, on a tiny synthetic fixture
 (no network / no 2.7 GB download needed)."""
 import json
+import warnings
 
 import numpy as np
 import pytest
 from PIL import Image
 
 from src.datasets.levir_cc import LevirCCDataset
+from src.datasets.registry import build_dataset
 from src.queries import get_queries
 
 
@@ -60,6 +62,20 @@ def test_split_filter(tmp_path):
     with pytest.warns(UserWarning, match="no pairs found"):
         assert len(LevirCCDataset(root=tmp_path, split="train").list_pairs()) == 0
     assert len(LevirCCDataset(root=tmp_path, split="test").list_pairs()) == 3
+
+
+def test_misspelled_keyword_is_named_in_a_warning(tmp_path):
+    _make_fixture(tmp_path)
+    with pytest.warns(UserWarning, match=r"ignoring unsupported argument.*splitt"):
+        assert len(LevirCCDataset(root=tmp_path, split="test", splitt="test").list_pairs()) == 3
+
+
+def test_generic_registry_options_raise_no_warning(tmp_path):
+    _make_fixture(tmp_path)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        build_dataset("levir_cc", root=str(tmp_path), pairing="bimonthly",
+                      split="test", color_mode="rgb")
 
 
 def test_query_relevance(ds):

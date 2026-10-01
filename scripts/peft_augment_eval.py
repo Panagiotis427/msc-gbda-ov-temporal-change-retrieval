@@ -2,7 +2,7 @@
 Track 4 --- bounded anti-memorization check: does feature-space augmentation
 rescue the PEFT adapter out-of-distribution?
 
-REPORT B.5/B.12 found the learned ProjectionHead adapter memorizes training AOIs
+The report (§8.2) found the learned ProjectionHead adapter memorizes training AOIs
 and collapses to <= frozen zero-shot on held-out AOIs. The open question (plan
 Track 4 / future-work "PEFT anti-memorisation via augmentation") is whether a
 regularizer that stops the adapter memorizing *exact* training Delta-f vectors
@@ -19,7 +19,7 @@ the shared pieces (``_masked_infonce``, ``build_caption_dataset``,
 ``_std``), and runs three controlled arms on the **same** AOI folds:
 
   1. frozen zero-shot      (no training)
-  2. PEFT, no augmentation (noise_std = 0)  -- reproduces the B.5 collapse
+  2. PEFT, no augmentation (noise_std = 0)  -- reproduces the report §8.2 collapse
   3. PEFT + feature noise  (noise_std > 0)  -- the anti-memorization arm
 
 so the comparison is leakage-free and apples-to-apples. Reported as an honest
@@ -85,7 +85,7 @@ def _train_noisy_adapter(ds_tr, store_tr, enc, *, epochs, noise_std, seed, devic
     return adapter
 
 
-def _cv_macro(store, ds, pairs, aois, aoi_fold, folds, evaluable, rel_all, tvec, enc,
+def _cv_macro(store, pairs, aois, aoi_fold, folds, evaluable, rel_all, tvec, enc,
               *, arm, epochs, noise_std, seed, root, color_mode):
     """Leakage-free k-fold macro mAP for one arm. arm in {zero_shot, peft}."""
     key = {(p.location_id, p.t1_key, p.t2_key): i for i, p in enumerate(pairs)}
@@ -153,14 +153,14 @@ def main() -> None:
                   color_mode=args.color_mode)
 
     print("zero-shot (frozen):")
-    zs = _cv_macro(store, ds, pairs, aois, aoi_fold, args.folds, evaluable, rel_all,
+    zs = _cv_macro(store, pairs, aois, aoi_fold, args.folds, evaluable, rel_all,
                    tvec, enc, arm="zero_shot", noise_std=0.0, **common)
     arms = {"zero_shot_frozen": {"cv_mean": round(float(np.mean(zs)), 4),
                                  "cv_std": round(_std(zs), 4)}}
     for ns in args.noise_stds:
         label = "peft_noaug" if ns == 0 else f"peft_noise_{ns}"
         print(f"{label}:")
-        fm = _cv_macro(store, ds, pairs, aois, aoi_fold, args.folds, evaluable, rel_all,
+        fm = _cv_macro(store, pairs, aois, aoi_fold, args.folds, evaluable, rel_all,
                        tvec, enc, arm="peft", noise_std=ns, **common)
         arms[label] = {"cv_mean": round(float(np.mean(fm)), 4),
                        "cv_std": round(_std(fm), 4), "noise_std": ns}

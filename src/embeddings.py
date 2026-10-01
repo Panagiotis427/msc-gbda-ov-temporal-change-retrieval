@@ -19,6 +19,9 @@ CLI:
 from __future__ import annotations
 
 import argparse
+import contextlib
+import os
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List
@@ -29,6 +32,26 @@ import torch
 from src.datasets.base import PairKey, TemporalDataset
 from src.encoders import get_encoder
 from src.features import compute_change_feature
+
+
+def _savez_atomic(path: str | Path, **arrays) -> None:
+    """``np.savez`` into a temporary file beside *path*, then ``os.replace`` it into
+    place: an interrupted write leaves the previous cache (or none) rather than a
+    truncated .npz the next run cannot load. The file name is what ``np.savez``
+    would have used (it appends ``.npz`` to any other name)."""
+    path = Path(path)
+    if not str(path).endswith(".npz"):
+        path = path.with_name(path.name + ".npz")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp")
+    try:
+        with open(tmp, "wb") as fh:
+            np.savez(fh, **arrays)
+        os.replace(tmp, path)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            tmp.unlink()
+        raise
 
 
 def cache_path(cache_dir: str | Path, dataset_name: str, encoder_name: str,
@@ -113,9 +136,7 @@ class PairEmbeddingStore:
         return compute_change_feature(t1, t2, mode=mode).numpy().astype(np.float32)
 
     def save(self, path: str | Path) -> None:
-        path = Path(path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        np.savez(
+        _savez_atomic(
             path,
             f_t1=self.f_t1.astype(np.float32),
             f_t2=self.f_t2.astype(np.float32),
@@ -129,19 +150,19 @@ class PairEmbeddingStore:
 
     @classmethod
     def load(cls, path: str | Path) -> "PairEmbeddingStore":
-        d = np.load(path, allow_pickle=False)
-        pairs = [
-            PairKey(str(l), str(a), str(b))
-            for l, a, b in zip(d["loc"], d["t1"], d["t2"])
-        ]
-        return cls(
-            dataset_name=str(d["dataset_name"]),
-            encoder_name=str(d["encoder_name"]),
-            embed_dim=int(d["embed_dim"]),
-            pairs=pairs,
-            f_t1=d["f_t1"].astype(np.float32),
-            f_t2=d["f_t2"].astype(np.float32),
-        )
+        with np.load(path, allow_pickle=False) as d:
+            pairs = [
+                PairKey(str(l), str(a), str(b))
+                for l, a, b in zip(d["loc"], d["t1"], d["t2"])
+            ]
+            return cls(
+                dataset_name=str(d["dataset_name"]),
+                encoder_name=str(d["encoder_name"]),
+                embed_dim=int(d["embed_dim"]),
+                pairs=pairs,
+                f_t1=d["f_t1"].astype(np.float32),
+                f_t2=d["f_t2"].astype(np.float32),
+            )
 
 
 def compute_pair_embeddings(
@@ -237,9 +258,7 @@ class PatchEmbeddingStore:
         return len(self.pairs)
 
     def save(self, path: str | Path) -> None:
-        path = Path(path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        np.savez(
+        _savez_atomic(
             path,
             patch_t1=self.patch_t1.astype(np.float32),
             patch_t2=self.patch_t2.astype(np.float32),
@@ -252,18 +271,18 @@ class PatchEmbeddingStore:
 
     @classmethod
     def load(cls, path: str | Path) -> "PatchEmbeddingStore":
-        d = np.load(path, allow_pickle=False)
-        pairs = [
-            PairKey(str(l), str(a), str(b))
-            for l, a, b in zip(d["loc"], d["t1"], d["t2"])
-        ]
-        return cls(
-            dataset_name=str(d["dataset_name"]),
-            encoder_name=str(d["encoder_name"]),
-            pairs=pairs,
-            patch_t1=d["patch_t1"].astype(np.float32),
-            patch_t2=d["patch_t2"].astype(np.float32),
-        )
+        with np.load(path, allow_pickle=False) as d:
+            pairs = [
+                PairKey(str(l), str(a), str(b))
+                for l, a, b in zip(d["loc"], d["t1"], d["t2"])
+            ]
+            return cls(
+                dataset_name=str(d["dataset_name"]),
+                encoder_name=str(d["encoder_name"]),
+                pairs=pairs,
+                patch_t1=d["patch_t1"].astype(np.float32),
+                patch_t2=d["patch_t2"].astype(np.float32),
+            )
 
 
 def compute_patch_embeddings(

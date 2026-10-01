@@ -129,3 +129,36 @@ class TestConcreteEncoderClassContracts:
         from src.encoders.clip_vitl14 import CLIPViTL14Encoder
         assert CLIPViTL14Encoder.embed_dim == 768
         assert CLIPViTL14Encoder.name == "clip_vitl14"
+
+
+class TestCheckpointLoadGuard:
+    """``_load_state_dict_flexible`` refuses a checkpoint that lacks the text tower's
+    embeddings, final norm or projection, not only one that lacks a whole tower
+    (tiny CPU module with open_clip's key names; no weights)."""
+
+    @staticmethod
+    def _tiny():
+        m = torch.nn.Module()
+        m.token_embedding = torch.nn.Embedding(4, 2)
+        m.ln_final = torch.nn.LayerNorm(2)
+        m.text_projection = torch.nn.Parameter(torch.zeros(2, 2))
+        m.positional_embedding = torch.nn.Parameter(torch.zeros(3, 2))
+        m.logit_scale = torch.nn.Parameter(torch.zeros(()))
+        return m
+
+    def _checkpoint(self, tmp_path, drop):
+        sd = {k: v for k, v in self._tiny().state_dict().items() if not k.startswith(drop)}
+        path = tmp_path / "ckpt.pt"
+        torch.save(sd, path)
+        return str(path)
+
+    @pytest.mark.parametrize("name", ["token_embedding", "positional_embedding",
+                                      "ln_final", "text_projection"])
+    def test_missing_text_tower_weights_are_refused(self, tmp_path, name):
+        from src.encoders._openclip_base import _load_state_dict_flexible
+        with pytest.raises(RuntimeError, match="missing critical weights"):
+            _load_state_dict_flexible(self._tiny(), self._checkpoint(tmp_path, (name,)))
+
+    def test_missing_logit_scale_is_tolerated(self, tmp_path):
+        from src.encoders._openclip_base import _load_state_dict_flexible
+        _load_state_dict_flexible(self._tiny(), self._checkpoint(tmp_path, ("logit_scale",)))
