@@ -6,7 +6,7 @@ tags:
 - change-detection
 - clip
 base_model: Zilun/GeoRSCLIP
-license: mit
+license: other
 ---
 
 # LoRA adapter — GeoRSCLIP visual encoder for open-vocabulary temporal change retrieval
@@ -19,11 +19,13 @@ GBDA lab project — full code and methodology in the
 
 ## Honest summary — a negative result
 
-**This adapter is a research artifact, not a recommended configuration.** Under leakage-free
-5-fold leave-AOI-out cross-validation it **memorises the training AOIs** (high train mAP) but
-gives **no held-out gain** over the frozen zero-shot encoder. For real retrieval, use the frozen
-**GeoRSCLIP + NRG** encoder with zero-shot / patch-level Δ-scoring — the report's best
-configuration (CV mAP 0.193 ± 0.051). This card documents the comparison for reproducibility, not
+**This adapter is a research artifact, not a recommended configuration.** It **memorises the
+training AOIs**: every setting of the rank/epoch sweep fits the train split (mAP 0.14–0.17) and
+falls to 0.06–0.07 on the held-out test split, where the frozen zero-shot encoder reaches 0.43 (a
+single 110-pair split; its cross-validated estimate is 0.100 ± 0.139).
+For real retrieval, use the frozen **GeoRSCLIP + NRG** encoder with zero-shot / patch-level
+Δ-scoring — the report's headline configuration (CV mAP 0.193 ± 0.051; 0.184 ± 0.046 with the corrected
+class names and patch tokens, see the repository README's notes on the report). This card documents the comparison for reproducibility, not
 for deployment.
 
 ## Training
@@ -44,7 +46,9 @@ Not a standalone model — load it through the repository:
 
 ## License
 
-MIT — see the repository's `LICENSE`.
+Not covered by the repository's MIT licence, which is for its code. The adapter was trained on
+Dynamic EarthNet (CC BY-SA 4.0) features from GeoRSCLIP (its card says only "cc"; the RS5M data it
+was trained on is CC BY-NC 4.0), so check those terms before any reuse outside research.
 
 ### Framework versions
 - PEFT 0.18.1

@@ -1,6 +1,6 @@
 # Open Vocabulary Temporal Change Retrieval (GBDA Lab Project)
 
-> **Results → [Results at a glance](#results-at-a-glance) below; full report → [`report/main.pdf`](report/main.pdf)** (best: GeoRSCLIP+NRG `patch_top3`, CV mAP 0.193 ± 0.051, 4/9 FDR-significant).
+> **Results → [Results at a glance](#results-at-a-glance) below; full report → [`report/main.pdf`](report/main.pdf)** (headline as submitted: GeoRSCLIP+NRG `patch_top3`, CV mAP 0.193 ± 0.051, 4/9 FDR-significant; recomputed with the corrected Dynamic EarthNet class names and patch tokens, 0.184 ± 0.046 and 6/8, against a fold-level random floor of about 0.12 — read the report with the [notes on the report](#notes-on-the-report)).
 
 A *Semantic Change Search Engine*: given a natural-language query
 (e.g. *"new buildings on former agricultural land"*, *"forest cleared to bare
@@ -69,7 +69,7 @@ step:
 ┌─ adapter training (only for `peft` approach; offline) ───────────────────┐
 │                                                                          │
 │  weak caption per pair  ──ProjectionHead──▶  masked symm. InfoNCE         │
-│  (e.g. "agriculture replaced by impervious surface")                     │
+│  (e.g. "forest replaced by soil")                                        │
 │                                              src/train.py                 │
 │  → models/<dataset>__<encoder>__adapter.pt                                │
 └──────────────────────────────────────────────────────────────────────────┘
@@ -122,14 +122,20 @@ derived `PairLabel`s → Recall@K, mAP, plus a seasonal-vs-permanent
 
 ## Results at a glance
 
-Frozen vision-language change retrieval hits a **robust ≈0.20 cross-validated-mAP ceiling** on
-Dynamic EarthNet — best configuration **GeoRSCLIP + NRG with patch-level top-3 Δ-scoring: CV mAP
-0.193 ± 0.051** (4/9 queries FDR-significant), recovery scaling with the visual salience of the
-change. Open-vocabulary breadth holds on LEVIR-CC / SECOND-CC (salient building/urban change
-strong; subtle/sparse change weak); PEFT/LoRA adapters memorise training AOIs with no held-out
-gain over frozen zero-shot; heatmap localisation is a weak signal. All numbers are audited —
-random-ranking baselines, permutation tests, BH-FDR, and leakage-free 5-fold leave-AOI-out
-cross-validation.
+Frozen vision-language change retrieval reaches about **0.2 cross-validated mAP** on Dynamic
+EarthNet. The report's headline configuration, **GeoRSCLIP + NRG with patch-level top-3 Δ-scoring, scores
+CV mAP 0.193 ± 0.051** (4/9 queries FDR-significant; 0.195 ± 0.048 and 5/9 when the query is averaged
+over a prompt ensemble, within noise). The report's Dynamic EarthNet class names are one class off and
+its GeoRSCLIP and RemoteCLIP patch tokens lacked attention between patches; recomputed with both
+corrections, the headline is **0.184 ± 0.046** over 8 evaluable queries (6/8 FDR-significant), against a
+fold-level random floor of about 0.12 (see the [notes on the report](#notes-on-the-report)). Open-vocabulary
+breadth holds on LEVIR-CC / SECOND-CC (building and road change strong; vegetation, demolition and water
+change weak); LoRA adapters memorise the training AOIs and collapse on held-out ones, and the
+cross-validated PEFT head is not significantly above frozen zero-shot (0.196 ± 0.049 against 0.139 ± 0.024
+as submitted, higher in 4 of 5 folds; 0.207 ± 0.079 against 0.142 ± 0.039 corrected, higher in 3 of 5), so
+it ties the frozen headline rather than beating it; heatmap localisation is at best a weak signal. Numbers
+are reported against random-ranking baselines, with permutation tests (pair-level permutations), BH-FDR
+and 5-fold cross-validation grouped by AOI.
 
 **Full results** — per-encoder tables, the honest single-split→CV arc, every ablation, and all
 figures — **are in the deliverable report: [`report/main.pdf`](report/main.pdf).**
@@ -282,7 +288,7 @@ share the split-tagged embedding cache.
 
 ```bash
 pytest -q                              # full suite (test_text_encoder needs the real CLIP weights — network or a warm cache — and skips without them)
-pytest -q --ignore=tests/test_text_encoder.py   # fast CPU loop, ~65 s (mock encoders, synthetic fixture)
+pytest -q --ignore=tests/test_text_encoder.py   # fast CPU loop, about 2 min on a laptop CPU (mock encoders, synthetic fixture)
 ```
 
 ## Dependencies — `pyproject.toml` vs `requirements.txt`
@@ -339,7 +345,9 @@ already covers it.
 
 - **Embeddings:** `data/cache/<dataset>__<encoder>[__<tag>]__pair_embeddings.npz`, where `<tag>` =
   `{split}[_{color_mode}][_lora]` — built by `cache_tag_for()`. Pass `cache_tag` to
-  `load_or_compute()` to isolate caches per split / colour / LoRA.
+  `load_or_compute()` to isolate caches per split / colour / LoRA. Per-patch caches of GeoRSCLIP and
+  RemoteCLIP carry a `__ctx` suffix (patch tokens in the transformer's own layout, since 2026-10-01); older
+  patch caches without it hold tokens from the old layout, are never read, and can be deleted.
 - **Adapters:** `models/<dataset>__<encoder>[_<color>][_<split>][_<mode>]__adapter.pt` — the
   committed `train` split + `difference` mode take no suffix; others append `_<color>` / `_<split>` /
   `_<mode>` (single underscore each). `scripts/export_results.py --train-split/--mode` locate the
@@ -402,9 +410,113 @@ Download links and citations for the datasets and encoders used.
 
 ## Report
 
-The complete technical account — methodology, the full statistical protocol, every ablation, the native-3m data-source-fidelity check, temporal pinpointing, and per-dataset results — is the **compiled deliverable report, [`report/main.pdf`](report/main.pdf)**, tracked in the repo so it reads directly on GitHub with no LaTeX build (LaTeX source: [`report/main.tex`](report/main.tex)). Its headline is a robust ≈0.20 cross-validated-mAP ceiling for frozen vision-language change retrieval (best configuration GeoRSCLIP + NRG with patch-level scoring, 0.193 ± 0.051), with recovery scaling by the visual salience of the change; the [Results at a glance](#results-at-a-glance) summary above is the audited in-repo digest.
+The complete technical account — methodology, the full statistical protocol, every ablation, the native-3m data-source-fidelity check, temporal pinpointing, and per-dataset results — is the **compiled deliverable report, [`report/main.pdf`](report/main.pdf)**, tracked in the repo so it reads directly on GitHub with no LaTeX build (LaTeX source: [`report/main.tex`](report/main.tex)). Its headline is a ≈0.20 cross-validated-mAP ceiling for frozen vision-language change retrieval (headline configuration GeoRSCLIP + NRG with patch-level scoring, 0.193 ± 0.051), with recovery scaling by the visual salience of the change; the [Results at a glance](#results-at-a-glance) summary above is the in-repo digest, and the notes below correct or qualify statements in the report.
 
 *Authors, the full acknowledgements, and the complete reference list are on the report's title page and bibliography.*
+
+## Notes on the report
+
+The submitted report ([`report/main.pdf`](report/main.pdf)) is unchanged. The notes below, dated 2026-10-01, correct or qualify statements in it; they use the report's printed section, table and figure numbers, and where a note and the report differ, the note is the current reading. The numbers in the report are what the archived embeddings and result files contain; the notes concern what some of them mean, and note 1 gives the headline recomputed with the corrections. Notes 1 to 4 change how the Dynamic EarthNet, patch-level, QFabric and significance results are read, notes 5 to 14 correct statements that the report's own tables do not support, and note 15 lists smaller corrections.
+
+### 1. Dynamic EarthNet class names are one class off
+
+Affects the abstract, Sections 2, 6, 7, 8.1 to 8.4, 12 and Appendix C, Tables 2 to 9 and 25, and Figures 4 to 9.
+
+The preprocessed label rasters store the seven classes as 0 to 6 in the order impervious surface, agriculture, forest and other vegetation, wetlands, soil, water, snow and ice, with no nodata value. The loader used for the report reserved 0 for nodata and numbered the classes from 1, so every class name sat on the preceding physical class: what the report calls impervious surface, agriculture, forest, wetlands, soil and water is physically agriculture, forest, wetlands, soil, water and snow and ice, physical impervious surface (about 7% of the pixels) was dropped as nodata, and the class the report calls snow and ice matched nothing. The loader now shifts the labels by one (`tests/test_dynamic_earthnet_pp.py`). The embeddings, splits and result files of the report are unchanged, so its numbers are exact for the relevance sets as they were computed; what changes is what those sets are.
+
+At the 5% pixel-fraction rule on the 825 bimonthly pairs, the positives per query are, as reported and with the physical classes: new buildings 14 and 0, urban expansion 14 and 0, deforestation 13 and 120, forest loss 13 and 120, new water body 9 and 25, bare soil 25 and 141, seasonal snow melting 0 and 11, agricultural land converted to wetland 146 and 15, wetland drained 162 and 13, land turning into wetland 146 and 15. The queries called new buildings and urban expansion were therefore scored against pairs in which at least 5% of the tile gained what is physically agriculture, and no pair gains 5% of physical impervious surface, so there is nothing for those two queries to retrieve; the three wetland queries were scored against changes of physical soil, which has a prevalence of 18 to 20% rather than about 2%. The dominant-class flips of Section 7 (71 of 825 pairs, 44 of them between wetlands and agriculture) are 72 pairs with the physical classes, 42 of them between forest and soil, and the three queries with positives on the 110-pair test split (Section 8.1, Appendix C) were scored against changes that are physically forest to soil, soil to forest and change into soil. Snow and ice is present (two high-mountain areas), so the statements that only snow is absent from the subset (Sections 7 and 12) and that seasonal drift is zero because the subset has no snow (Section 8.4) do not hold, and the test split has 16 stable pairs, not the 24 of Table 9. The weak captions that train the adapters ("agriculture replaced by wetlands") carry the same shifted names.
+
+What holds: every comparison made on the same relevance sets, read as a statement about those sets, namely the gap between training and held-out scores of the adapters (Tables 3, 4 and 6), the LoRA results (Tables 7 and 8), the contrast between the single test split and cross-validation (Table 2), and the comparisons of scoring approaches, encoders and colour modes subject to notes 7 and 8. The QFabric, LEVIR-CC, SECOND-CC, localisation, native-raster (controlled ablations) and temporal-pinpointing results do not use these labels. What does not hold: any reading of a Dynamic EarthNet per-query result as retrieval of the named change, in particular that new buildings and urban expansion are retrievable above chance (abstract, Sections 8.1 and 12), and the counts of evaluable change-types.
+
+Recomputed with the physical classes and with the contextual patch tokens of note 2 (`results/corrected_2026-10-01/`), the headline configuration (GeoRSCLIP, NRG, patch_top3) scores 0.184 ± 0.046 cross-validated mAP over the eight evaluable queries, against a fold-level random floor of about 0.116, and 0.183 ± 0.054 with the prompt ensemble; on the full corpus six of the eight queries are FDR-significant, subject to note 4 (all but agricultural land converted to wetland and wetland drained, with 15 and 13 positives). Under the same cross-validation, frozen global zero-shot scores 0.142 ± 0.039 and the projection head 0.207 ± 0.079, higher than zero-shot in three of five folds, so the tie of note 5 persists. The other Dynamic EarthNet tables have not been recomputed.
+
+### 2. Patch-level results of GeoRSCLIP and RemoteCLIP
+
+Affects the abstract, Sections 4, 5, 8.1, 8.3, 8.5 and 12, the last row of Table 2, Table 15 and Figures 2, 4 and 13.
+
+The per-patch embeddings of the two open_clip encoders were computed by a re-implementation of the vision transformer that handed the batch-first transformer of open_clip 2.24 and later (the minimum version the repository requires) a sequence-first tensor. A patch token then attended only to itself when an image was encoded alone, or to the same position in the other images of a batch, and never to the other patches of its own image; for images encoded one at a time, the mean cosine between these tokens and the model's own patch tokens is about 0.64 for both encoders on SECOND-CC test images. The code now follows the layout of the transformer (`tests/test_patch_tokens_layout.py`), and patch caches of these two encoders carry a `__ctx` suffix so that an older cache is never read; the archived patch caches, and every figure and number computed from them, used the old layout. Affected: the GeoRSCLIP patch scores (patch_top3 and its variants of Section 8.3, the 0.193 ± 0.051 headline, the last row of Table 2 and the right panel of Figure 4), the heatmaps of GeoRSCLIP and RemoteCLIP (Figure 13, and the app screenshot of Figure 2 and the screen recordings where the encoder is one of these, GeoRSCLIP being the default), and the pointing-game and patch-AP figures of these two encoders (Table 15 and the SECOND-CC localisation figures quoted in Section 8.5, the abstract and Section 12). Not affected: every result computed from global embeddings (naive, zero-shot Δ, PEFT, LoRA, all other tables and the appendices) and everything computed with CLIP ViT-L/14, whose patch tokens come from the Hugging Face implementation, including its patch_top3 score (0.149) and its localisation rows with their negative lifts.
+
+The affected numbers are exact for the features as computed, per-patch embeddings without attention between patches rather than the contextual patch tokens of the model. The statements that patch-level scoring of a frozen RS-pretrained encoder lifts cross-validated mAP from 0.139 to 0.193, that the 49-patch grid of GeoRSCLIP beats the 256-patch grid of CLIP (0.193 against 0.149) so that domain pre-training outweighs patch resolution, that only the RS-pretrained encoders localise road change, and the closing claim that spatial locality carries part of the signal are therefore not established by the report; note 1 gives the headline recomputed with contextual tokens.
+
+### 3. The QFabric train and test splits are disjoint by crop, not by site
+
+Affects Section 8.5, Table 11, the abstract and Section 12.
+
+97.9% of the test crops of the QFabric adapter experiment share a site with a training crop. The held-out gains of the adapter over the naive score (GeoRSCLIP +0.062, RemoteCLIP +0.043) are therefore not evidence of generalisation to new sites, and the explanation that QFabric change types are consistent visual categories from which the head learns transferable features, and the conclusion that the value of an adapter is dataset-dependent (harmful on Dynamic EarthNet, mildly helpful on QFabric), are not established. The training scores (0.998 and 0.999) and all frozen-encoder QFabric results (Tables 10 and 12) do not depend on the split.
+
+### 4. Significance counts and relevance sets
+
+Affects Sections 2, 7 and 8.1, Figure 4, and the counts of significant queries in this README.
+
+"FDR-significant" means a Benjamini–Hochberg q of at most 0.05 over the evaluable queries of one configuration, computed from one-sided permutation p-values that shuffle the relevance labels over all 825 pairs. The eleven pairs of an area are therefore treated as exchangeable, although the positives of several queries sit in few areas (at the 5% rule: new buildings and urban expansion 14 pairs in 5 areas, deforestation and forest loss 13 in 6, new water body 9 in 2, bare soil 25 in 11), so the p- and q-values are optimistic by an amount that has not been quantified, and "four of nine" and "five of nine" are upper bounds. The stars of Figure 4 mark a raw p below 0.05, not FDR significance (new water body, q = 0.053, carries one).
+
+The nine queries are also not nine independent tests. A pair is a positive when at least 5% of its valid pixels gain (or lose) the query's class, whatever the source (or destination) class, so new buildings and urban expansion share one relevance set, as do deforestation and forest loss, and the two wetland-gain queries; nine evaluable queries rest on six relevance sets, and the four significant queries on three. On the full corpus the dominant-flip rule makes six queries evaluable (three on the test split), not three.
+
+### 5. Adapters against frozen scoring out of distribution
+
+Affects the abstract, Sections 8.1, 8.2 and 12, and Tables 4 and 11.
+
+The abstract and Section 12 say that out of distribution the frozen zero-shot score beats the learned adapters, and Section 8.2 says that on unseen validation and test areas the adapter is equal to or worse than zero-shot. The tables support this for LoRA and for the GeoRSCLIP projection head on the 110-pair Dynamic EarthNet test split: LoRA (0.058 to 0.071) falls far below frozen NRG zero-shot (0.426) and the projection head (0.041) far below frozen RGB zero-shot (0.299); no projection-head adapter is significantly above the random floor on any held-out Dynamic EarthNet split (permutation p from 0.17 to 0.99), the LoRA test scores are below it (0.083), and the training scores of the adapters (0.335 to 0.420 for the projection head, 0.135 to 0.168 for LoRA, against 0.025 to 0.057 for frozen scoring) are memorisation. They do not support it in general. Under leakage-free five-fold cross-validation (Section 8.1) the projection head scores 0.196 ± 0.049 against 0.139 ± 0.024 for frozen global zero-shot, higher in 4 of 5 folds (one-sided sign test, p = 0.19, not significant), and level with the frozen patch-level headline (0.193 ± 0.051). In Table 4 the adapter is clearly above zero-shot in two of six cells (GeoRSCLIP validation 0.087 against 0.036, RemoteCLIP test 0.103 against 0.050), neither significantly above its random floor. On QFabric (Table 11) the adapter is above zero-shot for all three encoders (0.271, 0.334 and 0.288 against 0.185, 0.181 and 0.183), subject to note 3. The supported statement is that the low-compute adapters were not shown to improve retrieval out of distribution, and that frozen zero-shot and the projection head are statistically tied under cross-validation; frozen scoring beats LoRA on the test split.
+
+### 6. Random floors and the single test split
+
+Affects Section 8.1, Table 2, Figure 4 and Sections 2 and 7.
+
+The random baseline of about 0.08 in the caption of Table 2 is the expected average precision of a random ranking for the pixel-fraction relevance on the full corpus (0.080) and for the 110-pair test split (0.083). For the dominant-flip relevance on the full corpus it is 0.024. For the five-fold cross-validation it is the floor of 165-pair folds, which small folds with few positives raise: about 0.05 for the dominant-flip relevance and about 0.115 for the pixel-fraction relevance. Against these floors the full-corpus pixel-fraction score (0.091) is 0.011 above chance and the patch-level score (0.122) 0.042; the cross-validated 0.139 and 0.193 exceed the fold floor by about 0.02 and 0.08, and the dominant-flip 0.100 exceeds its floor by about 0.05. The statement that the pixel-fraction rule "roughly triples" full-corpus mAP (0.037 to 0.091, a factor of 2.5) mostly reflects the floor rising by a larger factor (0.024 to 0.080) when three wetland sets with a prevalence of 18 to 20% were added. More generally, the expected average precision of a random ranking equals the prevalence only for large corpora: on the test split the prevalence is 0.045 and the random-ranking value 0.083.
+
+Section 8.1 also says that the single 0.426 split overstates generalisation "by roughly twofold"; against the cross-validated 0.100 it is a factor of 4.3. The test split does not "coincide with the easy high-wetland fold": its ten areas fall in four of the five folds (3, 2, 3 and 2), and the 0.348 fold alone lifts the dominant-flip cross-validated mean, the other four folds scoring 0.032 to 0.048.
+
+### 7. Colour mode and encoder ordering under cross-validation
+
+Affects Section 8.3, Table 5 and Section 12.
+
+Section 8.3 says that NRG remaining the best colour mode for every encoder and the encoder ordering GeoRSCLIP ≫ CLIP ≈ RemoteCLIP both hold under cross-validation. Only GeoRSCLIP has a cross-validated RGB run: NRG is above RGB in 4 of 5 folds for the pixel-fraction relevance (0.139 against 0.115) but in 1 of 5 for the dominant-flip relevance (0.100 against 0.085, through the 0.348 fold); CLIP ViT-L/14 and RemoteCLIP have none. The cross-validated encoder means are 0.100, 0.076 and 0.053 for GeoRSCLIP, CLIP and RemoteCLIP with the dominant-flip relevance and 0.139, 0.123 and 0.134 with the pixel-fraction relevance; with the latter GeoRSCLIP exceeds CLIP in 3 of 5 folds and RemoteCLIP in 2 of 5, so the encoders are not separated. The orderings of Tables 4 and 5 are single-split results on 15 positives in which only the three GeoRSCLIP zero-shot entries (RGB, NDVI and NRG) are significantly above their floor (q = 0.002, 0.018 and 0.001).
+
+### 8. Concatenation, prompt ensemble and query gate (Section 8.3)
+
+Affects Table 6 and the aggregation paragraph of Section 8.3.
+
+Concatenation (Table 6): the text says that it "consistently lowers" training mAP, raises validation mAP "for all three encoders" and is "the better-generalising change feature". Training mAP rises for RemoteCLIP (0.352 to 0.359) and the validation mAP of GeoRSCLIP is unchanged (0.087 against 0.086), so both statements hold for two of three encoders; all concatenate test entries (0.050, 0.070 and 0.078) are below the test floor of 0.083, the rows come from one seed and carry no significance test, and the comparison is inconclusive. Prompt ensemble: the 0.142 quoted as a wash is the ensemble applied to the global Δ score (0.139 without it), not to patch_top3; with patch_top3 the ensemble gives 0.195 ± 0.048 with five of nine queries FDR-significant (new water body included) against 0.193 ± 0.051 and four, a tie within noise. Query-geometry gate: it scores 0.186 ± 0.051 with four FDR-significant queries, but not "the same four" as ungated patch_top3: it gains agricultural land converted to wetland (q = 0.003) and loses wetland drained (q = 0.002 ungated, 0.96 gated).
+
+### 9. LEVIR-CC and SECOND-CC weak queries
+
+Affects the abstract, Section 8.5 (Tables 13 and 14, Figures 10 to 12) and Section 12.
+
+The report describes the LEVIR-CC vegetation, demolition and water queries as sitting "at or only just above" their prevalence floors, as near-random and as collapsing onto the diagonal of Figure 12. Table 13 and Figure 10 show otherwise: vegetation is below its floor (0.239) for all three encoders (0.159, 0.182 and 0.186); demolition is 1.6 to 2.0 times its floor (0.148) for GeoRSCLIP and RemoteCLIP and below it for CLIP ViT-L/14 (0.138); water (19 positives, floor 0.010) is 10 to 22 times its floor (0.151, 0.221 and 0.096). What holds is that building and road change are far above their floors (0.57 to 0.83) and that the other queries are weak in absolute terms. Section 8.5 also says that the RS-pretrained encoders "still gain from the directional Δ on the strong queries": for GeoRSCLIP zero-shot is at or below naive on both (0.804 against 0.824 for building, 0.571 against 0.593 for road), for RemoteCLIP it is higher on building (+0.041) and equal on road, and the five-query macro is lower for zero-shot than for naive with all three encoders (0.396, 0.379 and 0.400 against 0.409, 0.426 and 0.413). On SECOND-CC "every query clears its prevalence floor" holds for GeoRSCLIP and RemoteCLIP; CLIP ViT-L/14 on new buildings is just below (0.652 against 0.659).
+
+### 10. Localisation statements
+
+Affects the abstract, Section 8.5, Table 15 and Section 12.
+
+The caption of Table 15 names the pointing game and patch-AP but the table reports the pointing game only. By patch-AP, GeoRSCLIP is above its floor on LEVIR-MCI building (+0.043) and road (+0.076), RemoteCLIP is at −0.019 and +0.005 and CLIP ViT-L/14 at −0.045 and −0.037, so "building change is not localised above its floor by any encoder" holds for the pointing game only. "Every reliably-sampled class sits within ±0.04 of its random-patch floor" on SECOND-CC holds except for RemoteCLIP on building (−0.067), and the abstract's "within ±0.04–0.10" leaves out the CLIP ViT-L/14 building lift of −0.137. All GeoRSCLIP and RemoteCLIP figures are subject to note 2.
+
+### 11. LoRA result files
+
+Affects Table 7 and the files `results/*__zero_shot__lora.json`, `results/macro_summary.csv`, `results/results_audit_summary.csv` and `scripts/lora_sweep.py`.
+
+The LoRA figures of Tables 7 and 8 (rank 4, alpha 8, 20 epochs: training 0.153, test 0.071) come from `results/lora_sweep.txt`, which was run after the LoRA loss and target-module corrections; the validation entry of Table 7 (0.034) is not recorded in a tracked file. The three `results/dynamic_earthnet__georsclip__*__nrg__zero_shot__lora.json` files, the LoRA rows of `results/macro_summary.csv` and `results/results_audit_summary.csv`, and an earlier docstring of `scripts/lora_sweep.py` record a run of the same configuration made before those corrections (training 0.021, validation 0.041, test 0.159). The later run is the one the report and the adapter in `models/` use; the earlier rows should not be read.
+
+### 12. Terminology
+
+Affects the abstract and Sections 2 and 7.
+
+"Leave-one-AOI-out cross-validation" means five-fold cross-validation grouped by area: the 75 areas are partitioned, with a fixed seed, into five folds of 15, and each fold is held out once. It is not the 75-fold leave-one-out. A reported "±" is the sample standard deviation of the five fold-level macro mAPs, each computed over the queries that have positives in that fold; in Table 20 it is the standard deviation over five seeds.
+
+### 13. Seasonal gate and temporal pinpointing
+
+Affects Section 8.4 and Table 9, Appendix B and Table 24, and Section 12.
+
+The per-pair gate score of Table 9 is the maximum Δ over the ten Dynamic EarthNet queries, and the mean stable Δ of 0.0125 is the mean of that maximum. Only false positives are reported, not the fraction of pairs with real change that clear the same thresholds, so the table shows that the gate rarely fires on label-stable pairs, not that it separates seasonal drift from change. In Appendix B the 63% peak-hit rate within one month is the mean over five queries, one of which has a single area; pooled over the 20 query-area cases it is 50%, and no chance rate is given (with about 2 of 23 months relevant, a random peak lands within one month of a true step about a quarter of the time). The macro temporal mAP (0.309 against 0.207) is not tested, no single query survives Benjamini–Hochberg correction (snow melting: p = 0.025, q = 0.125, two areas), and GeoRSCLIP is at or below chance (0.146). "The system does locate change in time above chance" and, in Section 12, snow melt "pinpointed in time above chance" are therefore suggestive rather than established.
+
+### 14. Appendix A cross-source comparison
+
+Affects Table 21 and the text around it.
+
+The native-raster row of Table 21 uses the class maps of the native loader; the JPEG-subset rows use the preprocessed labels (note 1). The two also differ in areas (23 and 75), pairs (253 and 825), evaluable queries (5 and 6) and colour (RGB and NRG). The comparison is therefore not a like-for-like test of imagery fidelity, and "the native source is no worse" is weaker than stated. The controlled degradation ablation (Tables 22 and 23), which uses one corpus and one set of labels, is not affected.
+
+### 15. Smaller corrections
+
+Abstract and Section 8.1: the in-distribution scores of the adapters span 0.335 to 0.999 (projection head 0.335 to 0.420 on Dynamic EarthNet and 0.998 to 0.999 on QFabric; LoRA 0.135 to 0.168), not 0.420 to 0.999 or 0.42 to 0.998. Section 8.2: the training lift of the projection head over zero-shot is 6 to 10 times, not 8 to 10 (RemoteCLIP: 0.352 against 0.057), and "where GeoRSCLIP leads" holds for frozen zero-shot on test, not for the adapters. Section 8.5: the industrial change-type AP is 0.29 and mega-projects 0.02 (0.2946 and 0.0246); the naive lead over zero-shot on change types is 0.09 for CLIP and GeoRSCLIP and 0.05 for RemoteCLIP; the margins of Table 12 (+0.000, +0.005 and +0.007) carry no paired test and are read as ties; "the opposite of DEN" and "harmful on DEN" hold for GeoRSCLIP, whereas for RemoteCLIP on the Dynamic EarthNet test split naive beats zero-shot (0.121 against 0.050) and the adapter beats zero-shot (0.103). Section 11: "all mAP figures use LULC-derived pseudo-labels" holds for Dynamic EarthNet only, the relevance of LEVIR-CC and SECOND-CC comes from human captions and that of QFabric from its annotated change types; fMoW has no change labels and no loader (Section 3 lists it as a source of functional change taxonomies; this README marks it rejected); in `aoi_metadata.json` 46 of 75 areas have Sentinel-1 for all 24 months (51 have at least 21). Section 10: seeds fix the partitions and the training, not the non-determinism of the GPU. Table 17: the projection head is 0.17% of the 768-dimensional backbones and 0.35% of GeoRSCLIP, not under 0.2% for all. Table 18: the rows sum to 19.9 GB (12.8 GB without the archive). Table 19: the fast test suite took about 65 s on the original machine and takes about two minutes on a laptop CPU.
 
 ## License
 

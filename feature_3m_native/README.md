@@ -5,8 +5,8 @@ imagery** of DynamicEarthNet — the source that the report's §Data had **exclu
 in favour of the ~7 GB preprocessed RGB/NIR-JPEG subset.
 
 **Question:** does working on the lossy JPEG subset *cost* retrieval performance?
-**Answer: no** — the native rasters land in the same band, if anything slightly
-better, so the data-source choice is vindicated.
+**Answer: no** — the native rasters land in the same band, no worse within fold
+variance, so the data-source choice is vindicated.
 
 ## Motivation — the excluded source
 
@@ -83,6 +83,9 @@ uv run python scripts/make_temporal_pinpoint_figure.py
 | JPEG subset (committed) | NRG | 0.076 | 75 AOIs |
 | JPEG subset (fraction relevance) | NRG | 0.123 | 75 AOIs |
 
+The JPEG-subset rows use the labels of the preprocessed loader, whose class names were one class off
+(see the notes on the report in the repository README); the native row uses the native loader.
+
 The comparison is not fully controlled (the corpora differ in AOI count, 23 vs 75,
 and colour composite, RGB vs NRG). But colour barely moves the score on this corpus
 (georsclip on the JPEG subset: RGB 0.085 vs NRG 0.100), so the direction is robust:
@@ -97,13 +100,12 @@ and colour composite, RGB vs NRG). But colour barely moves the score on this cor
 ## How this connects to the wider conclusions
 
 This is one more structurally different attempt at the same ceiling. The report
-already shows the bottleneck is not the spectral channels (NIR), not the encoder
-(RemoteCLIP), and not spatial tiling (patches) — all sit at the same band. The
-native 3 m result adds: **full radiometric quality at native resolution does not
-move it either.** So the limit is not imagery compression or resolution; it is the
-frozen web-pretrained features and the small labelled AOI set. Practical takeaway
-for the paper: the lightweight ~7 GB JPEG subset was the right call — it cost no
-accuracy.
+shows that NIR false colour and patch-level scoring help (Sections 8.1 and 8.3) and
+that the retrieval ceiling stays near 0.20; the native 3 m result adds that **full
+radiometric quality at native resolution does not move it either.** So the limit is
+not imagery compression or resolution; it is the frozen web-pretrained features and
+the small labelled AOI set. Practical takeaway for the report: the lightweight ~7 GB
+JPEG subset cost no accuracy.
 
 ## Pointers
 - Shared report: [`report/main.pdf`](../report/main.pdf) (source `report/main.tex`), appendix `sec:nativeraster` — tables

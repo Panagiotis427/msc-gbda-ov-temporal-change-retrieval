@@ -10,5 +10,7 @@ georsclip     concatenate   0.2750   0.0864   0.0697
 remoteclip    difference    0.3522   0.0279   0.1032
 remoteclip    concatenate   0.3591   0.1085   0.0784
 
-Finding: concatenate lowers train but raises held-out val for all 3 encoders
-(keeps both endpoints -> less overfit). difference values are from results/*.json.
+Finding: concatenate lowers train for clip_vitl14 and georsclip (remoteclip: +0.007) and raises
+held-out val for clip_vitl14 and remoteclip (georsclip: -0.001); test rises for clip_vitl14 and
+georsclip, every concatenate test value is below the 0.083 test floor, and the runs are single-seed
+with no significance test, so the comparison is inconclusive. difference values are from results/*.json.

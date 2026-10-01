@@ -28,8 +28,8 @@ EarthNet-shaped sample of 2 locations × 8 months, 6 pairs, under 1 MB), so its 
 interface works rather than how well retrieval does; the other corpora in **Settings** need their data
 locally and report an error here.
 
-> Research demo — retrieval is approximate. Frozen vision–language change retrieval hits a
-> ≈0.20 cross-validated-mAP ceiling, with recovery scaling by how visually salient the change is.
+> Research demo — retrieval is approximate. Frozen vision–language change retrieval reaches about
+> 0.2 cross-validated mAP on Dynamic EarthNet, with recovery scaling by how visually salient the change is.
 
 ## Full project
 

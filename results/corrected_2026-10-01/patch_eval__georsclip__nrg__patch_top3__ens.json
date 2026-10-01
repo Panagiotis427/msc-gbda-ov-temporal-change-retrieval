@@ -1,0 +1,126 @@
+{
+  "dataset": "dynamic_earthnet",
+  "encoder": "georsclip",
+  "color_mode": "nrg",
+  "approach": "patch_top3",
+  "relevance": "fraction",
+  "frac_thresh": 0.05,
+  "pairing": "bimonthly",
+  "prompt_ensemble": true,
+  "tau": 0.03,
+  "n_pairs": 825,
+  "patch_grid": 49,
+  "n_evaluable_queries": 8,
+  "full_corpus": {
+    "macro_mAP": 0.1349,
+    "per_query": [
+      {
+        "query": "deforestation, forest cleared to bare soil",
+        "n_relevant": 120,
+        "ap": 0.2021,
+        "ci95": [
+          0.1567,
+          0.2574
+        ],
+        "rand_ap": 0.1523,
+        "perm_p": 0.0045,
+        "bh_fdr": 0.0083
+      },
+      {
+        "query": "forest loss",
+        "n_relevant": 120,
+        "ap": 0.1953,
+        "ci95": [
+          0.1501,
+          0.2541
+        ],
+        "rand_ap": 0.1517,
+        "perm_p": 0.0052,
+        "bh_fdr": 0.0083
+      },
+      {
+        "query": "new water body or flooding",
+        "n_relevant": 25,
+        "ap": 0.1065,
+        "ci95": [
+          0.0593,
+          0.1796
+        ],
+        "rand_ap": 0.0377,
+        "perm_p": 0.0032,
+        "bh_fdr": 0.0083
+      },
+      {
+        "query": "bare soil or land cleared",
+        "n_relevant": 141,
+        "ap": 0.2774,
+        "ci95": [
+          0.218,
+          0.3495
+        ],
+        "rand_ap": 0.1772,
+        "perm_p": 0.0002,
+        "bh_fdr": 0.0016
+      },
+      {
+        "query": "seasonal snow melting away",
+        "n_relevant": 11,
+        "ap": 0.0863,
+        "ci95": [
+          0.0326,
+          0.174
+        ],
+        "rand_ap": 0.0207,
+        "perm_p": 0.0125,
+        "bh_fdr": 0.0167
+      },
+      {
+        "query": "agricultural land converted to wetland or marsh",
+        "n_relevant": 15,
+        "ap": 0.0445,
+        "ci95": [
+          0.0183,
+          0.0953
+        ],
+        "rand_ap": 0.0256,
+        "perm_p": 0.0622,
+        "bh_fdr": 0.0622
+      },
+      {
+        "query": "wetland drained and turned into farmland",
+        "n_relevant": 13,
+        "ap": 0.0494,
+        "ci95": [
+          0.0129,
+          0.2133
+        ],
+        "rand_ap": 0.0233,
+        "perm_p": 0.0397,
+        "bh_fdr": 0.0454
+      },
+      {
+        "query": "land turning into wetland",
+        "n_relevant": 15,
+        "ap": 0.1179,
+        "ci95": [
+          0.0322,
+          0.3097
+        ],
+        "rand_ap": 0.0256,
+        "perm_p": 0.0015,
+        "bh_fdr": 0.006
+      }
+    ]
+  },
+  "kfold": {
+    "macro_mAP_mean": 0.1832,
+    "macro_mAP_std": 0.0541,
+    "fold_macro": [
+      0.2193,
+      0.1345,
+      0.2333,
+      0.1154,
+      0.2137
+    ]
+  }
+}
