@@ -130,6 +130,14 @@ class TestConcreteEncoderClassContracts:
         assert CLIPViTL14Encoder.embed_dim == 768
         assert CLIPViTL14Encoder.name == "clip_vitl14"
 
+    def test_clip_image_processor_kwargs_follow_transformers(self):
+        # transformers 5.4 replaced `use_fast` with `backend`; both pick the torchvision processor
+        from src.encoders.clip_vitl14 import _image_processor_kwargs
+        assert _image_processor_kwargs("4.36.2") == {"use_fast": True}
+        assert _image_processor_kwargs("5.3.0") == {"use_fast": True}
+        assert _image_processor_kwargs("5.4.0") == {"backend": "torchvision"}
+        assert _image_processor_kwargs("5.19.0") == {"backend": "torchvision"}
+
 
 class TestCheckpointLoadGuard:
     """``_load_state_dict_flexible`` refuses a checkpoint that lacks the text tower's

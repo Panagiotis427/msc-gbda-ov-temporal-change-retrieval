@@ -12,6 +12,8 @@ from typing import List, Optional, Union
 import numpy as np
 import torch
 import torch.nn.functional as F
+import transformers
+from packaging.version import Version
 from PIL import Image
 from transformers import CLIPModel, CLIPProcessor
 
@@ -19,6 +21,16 @@ from ..text_encoder import FrozenTextEncoder
 
 
 _DEFAULT_MODEL = "openai/clip-vit-large-patch14"
+
+
+def _image_processor_kwargs(version: str = transformers.__version__) -> dict:
+    """Ask for the torchvision ("fast") CLIP image processor the way the installed
+    transformers expects: 5.4 added ``backend`` and deprecated ``use_fast``, which a
+    later release removes; earlier releases know only ``use_fast``. Both select the
+    same processor, so the switch changes no preprocessing."""
+    if Version(version) >= Version("5.4.0"):
+        return {"backend": "torchvision"}
+    return {"use_fast": True}
 
 
 class CLIPViTL14Encoder:
@@ -53,7 +65,7 @@ class CLIPViTL14Encoder:
         for p in self._clip_model.parameters():
             p.requires_grad = False
         self._processor: CLIPProcessor = CLIPProcessor.from_pretrained(
-            model_name, cache_dir=self.cache_dir, use_fast=True
+            model_name, cache_dir=self.cache_dir, **_image_processor_kwargs()
         )
 
     def encode_text(
