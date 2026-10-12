@@ -263,7 +263,8 @@ Startup defaults are set through CLI flags:
 > `peft` errors "no adapter" → adapter missing from `models/`; train with `run_pipeline` (below)
 > or switch to `zero_shot`. **Hosted demo (no install):** the app is live on the
 > [HuggingFace Space](https://huggingface.co/spaces/panagiotis427/Open_Vocabulary_Temporal_Change_Retrieval);
-> redeploy the current tree with `python scripts/deploy_space.py`.
+> redeploy the current tree with `python scripts/deploy_space.py`, which refuses unless the files it ships are
+> committed and `main` is the tip on GitHub (`--allow-unsynced` overrides).
 
 ### Developer — pipeline, training, tests
 

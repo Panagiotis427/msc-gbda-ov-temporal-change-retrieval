@@ -21,16 +21,25 @@ compiled ``.pyc`` files are never uploaded.
 
 Auth: uses your cached ``huggingface-cli login`` token (or the ``HF_TOKEN`` env var).
 
+It refuses to deploy unless the files it ships are committed and the checked-out branch is the tip of its upstream
+branch on GitHub (read with ``git ls-remote``; nothing is fetched): the upload replaces the whole Space, so a stale or
+dirty tree would silently roll it back. ``--allow-unsynced`` skips the check.
+
 Run from the repo root:
-    python scripts/deploy_space.py
+    python scripts/deploy_space.py [--allow-unsynced]
 """
 from __future__ import annotations
 
+import argparse
+import subprocess
+import sys
 from pathlib import Path
 
 from huggingface_hub import CommitOperationAdd, CommitOperationDelete, HfApi
 
 REPO_ID = "panagiotis427/Open_Vocabulary_Temporal_Change_Retrieval"
+# everything _files() and main() read from the working tree
+SHIPPED = ("app.py", "requirements.txt", "src", "tests/fixtures", "scripts/space_readme.md")
 
 
 def _files() -> list:
@@ -43,7 +52,70 @@ def _files() -> list:
     return keep
 
 
-def main() -> None:
+def _git(repo: Path, *args: str) -> tuple[int, str]:
+    """``git -C repo *args`` -> (exit code, stdout without trailing whitespace); a missing git counts as a failure."""
+    try:
+        proc = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True)
+    except OSError:
+        return 1, ""
+    return proc.returncode, proc.stdout.rstrip()
+
+
+def _upstream_problem(repo: Path) -> str | None:
+    """Why HEAD is not the tip of its upstream branch on the remote, or None when it is. The remote is read with
+    ``git ls-remote``, so nothing is fetched and no ref moves."""
+    rc, branch = _git(repo, "symbolic-ref", "--quiet", "--short", "HEAD")
+    if rc != 0:
+        return "HEAD is detached, so there is no upstream branch to compare with"
+    remote = _git(repo, "config", "--get", f"branch.{branch}.remote")[1]
+    merge = _git(repo, "config", "--get", f"branch.{branch}.merge")[1]
+    if not remote or not merge:
+        return f"branch {branch} has no upstream to compare with"
+    upstream = f"{remote}/{merge.removeprefix('refs/heads/')}"
+    rc, listing = _git(repo, "ls-remote", remote, merge)
+    tips = [line.split()[0] for line in listing.splitlines() if line.split()[1:] == [merge]]
+    if rc != 0 or not tips:
+        return f"could not read {upstream} (offline, or the branch is gone), so its tip is unknown"
+    tip, head = tips[0], _git(repo, "rev-parse", "HEAD")[1]
+    if head == tip:
+        return None
+    if _git(repo, "merge-base", "--is-ancestor", head, tip)[0] == 0:
+        return f"HEAD {head[:12]} is behind {upstream} ({tip[:12]}); pull first"
+    if _git(repo, "merge-base", "--is-ancestor", tip, head)[0] == 0:
+        return f"HEAD {head[:12]} has commits that {upstream} ({tip[:12]}) lacks; push first"
+    return f"HEAD {head[:12]} is not the tip of {upstream} ({tip[:12]}); fetch, then pull or push"
+
+
+def sync_problems(repo: Path = Path(".")) -> list:
+    """Reasons not to deploy ``repo``'s working tree, empty when there are none: uncommitted or untracked changes in
+    the shipped files, or HEAD away from the tip of its upstream branch on the remote."""
+    if _git(repo, "rev-parse", "--is-inside-work-tree") != (0, "true"):
+        return [f"not a git checkout: {repo}"]
+    problems = []
+    rc, status = _git(repo, "status", "--porcelain", "--untracked-files=normal", "--", *SHIPPED)
+    if rc != 0 or status:
+        changed = [line[3:] for line in status.splitlines()]
+        problems.append("uncommitted or untracked changes in the shipped files: "
+                        + ", ".join(changed[:5]) + (" ..." if len(changed) > 5 else ""))
+    upstream = _upstream_problem(repo)
+    if upstream:
+        problems.append(upstream)
+    return problems
+
+
+def main(argv: list | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="deploy_space.py",
+                                     description="Deploy the app to its HuggingFace Space (slim, Xet-safe).")
+    parser.add_argument("--allow-unsynced", action="store_true",
+                        help="deploy even if the shipped files have uncommitted changes or HEAD is not the tip of "
+                             "its upstream branch (checked with git ls-remote; nothing is fetched)")
+    args = parser.parse_args(argv)
+    if not args.allow_unsynced:
+        problems = sync_problems()
+        if problems:
+            print("refusing to deploy:\n  " + "\n  ".join(problems) + "\n(--allow-unsynced skips this check)",
+                  file=sys.stderr)
+            return 1
     api = HfApi()
     who = api.whoami().get("name", "?")
     ops = [CommitOperationAdd(path_in_repo=p.as_posix(), path_or_fileobj=str(p)) for p in _files()]
@@ -58,7 +130,8 @@ def main() -> None:
     api.create_commit(repo_id=REPO_ID, repo_type="space", operations=ops,
                       commit_message="Deploy the app: code, fixture and landing page")
     print(f"Done. Watch the build: https://huggingface.co/spaces/{REPO_ID}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
